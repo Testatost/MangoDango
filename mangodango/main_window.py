@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 from PySide6.QtCore import QLocale, QSettings, Qt, QTimer, QUrl, Slot
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeySequence, QShortcut, QTextCursor
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QKeySequence, QShortcut, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
@@ -136,6 +136,21 @@ class MainWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         self.setWindowTitle(APP_NAME)
+
+        # Window icon fallback. QApplication also sets this in app.py, but keeping
+        # it here makes direct window construction reliable in development.
+        try:
+            import sys
+            base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+            for icon_name in ("icon.ico", "icon.png", "logo-small.png", "logo.png"):
+                icon_path = base / icon_name
+                if icon_path.exists():
+                    icon = QIcon(str(icon_path))
+                    if not icon.isNull():
+                        self.setWindowIcon(icon)
+                        break
+        except Exception:
+            pass
         root = QWidget()
         self.setCentralWidget(root)
         outer = QVBoxLayout(root)
