@@ -1,0 +1,90 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+
+# Installer / packaging
+*.spec
+*.manifest
+
+# Test / coverage output
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# IDE / editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Runtime logs
+*.log
+logs/
+
+# MangoDango runtime data
+downloads/
+Downloads/
+MangoDango/
+WeebCentral/
+*.cbz
+*.pdf
+
+# Queue, settings, cache and temporary runtime files
+queue.json
+settings.json
+config.json
+*.tmp
+*.temp
+*.bak
+*.backup
+.cache/
+cache/
+tmp/
+temp/
+
+# Local user data
+*.sqlite
+*.sqlite3
+*.db
+
+# OS / desktop integration artifacts
+*.desktop
+*.lnk
+
+# Generated Python package cache
+*.pyd
+*.so
+*.dylib
+
+# Keep project assets
+!icon.ico
+!icon.png
+!logo.png
+!logo-small.png
+!README.md
+!THIRD_PARTY_NOTICES.md
+!requirements.txt
