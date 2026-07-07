@@ -271,6 +271,14 @@ def build_stylesheet(settings: ThemeSettings) -> str:
         QLabel#Subtitle, QLabel#Muted {{
             color: {c['muted']};
         }}
+        QLabel#HeroPanel {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #141414, stop:0.70 {c['panel']});
+            color: {c['text']};
+            border: 1px solid #e50914;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 14px;
+        }}
         QPushButton#HomeButton {{
             text-align: left;
             padding: 0;

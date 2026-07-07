@@ -6,7 +6,7 @@ from PySide6.QtCore import QThread, Signal
 
 from .i18n import Translator
 from .models import ItemSettings, MangaEntry
-from .scraper import WeebCentralClient
+from .scraper import WeebCentralClient, chapter_is_downloaded
 
 
 class ResolveWorker(QThread):
@@ -67,7 +67,8 @@ class QueueDownloadWorker(QThread):
                 continue
             for chapter in manga.chapters:
                 if chapter.enabled:
-                    if self.skip_done and chapter.status == "done":
+                    if chapter.status == "done" or chapter_is_downloaded(self.output_dir, manga.title, chapter):
+                        chapter.status = "done"
                         continue
                     result.append((manga, chapter))
         return result
