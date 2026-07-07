@@ -279,6 +279,60 @@ def build_stylesheet(settings: ThemeSettings) -> str:
             padding: 14px 18px;
             font-size: 14px;
         }}
+        QLabel#NetflixBanner {{
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #050505, stop:0.45 #141414, stop:1 {c['window']});
+            color: #ffffff;
+            border: 1px solid #2a2a2a;
+            border-radius: 18px;
+            padding: 28px 34px;
+            font-size: 36px;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }}
+        QScrollArea#LibraryScroll {{
+            background: #050505;
+            border: 0;
+            border-radius: 12px;
+        }}
+        QWidget#LibraryContent {{
+            background: #050505;
+        }}
+        QLabel#LibraryEmpty {{
+            background: #141414;
+            color: #b3b3b3;
+            border: 1px dashed #3a3a3a;
+            border-radius: 14px;
+            padding: 26px;
+            font-size: 16px;
+        }}
+        QFrame#MangaCard {{
+            background: #141414;
+            border: 1px solid #242424;
+            border-radius: 14px;
+        }}
+        QFrame#MangaCard:hover {{
+            background: #1f1f1f;
+            border-color: #e50914;
+        }}
+        QLabel#PosterPlaceholder {{
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e50914, stop:1 #5f0005);
+            color: #ffffff;
+            border-radius: 10px;
+            font-size: 42px;
+            font-weight: 900;
+        }}
+        QLabel#CardTitle {{
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 800;
+        }}
+        QLabel#CardMeta {{
+            color: #e5e5e5;
+            font-weight: 700;
+        }}
+        QLabel#CardDescription {{
+            color: #b3b3b3;
+        }}
         QPushButton#HomeButton {{
             text-align: left;
             padding: 0;
