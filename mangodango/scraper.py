@@ -18,7 +18,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .constants import IMAGE_FORMATS, READING_STYLES
-from .models import ChapterEntry, ItemSettings, MangaEntry
+from .models import ChapterEntry, DownloadedChapterInfo, ItemSettings, MangaEntry
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 PLACEHOLDER_MARKERS = (
@@ -83,6 +83,28 @@ def chapter_number(name: str) -> float | None:
     except ValueError:
         return None
 
+
+def chapter_output_info(output_dir: str, manga_title: str, chapter_title: str) -> DownloadedChapterInfo:
+    manga_dir = Path(output_dir) / sanitize_filename(manga_title, "Manga")
+    chapter_name = sanitize_filename(chapter_title, "Chapter")
+    chapter_dir = manga_dir / chapter_name
+    image_count = 0
+    if chapter_dir.exists() and chapter_dir.is_dir():
+        image_count = len([item for item in chapter_dir.iterdir() if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS and item.stat().st_size > 0])
+    cbz_path = manga_dir / f"{chapter_name}.cbz"
+    pdf_path = manga_dir / f"{chapter_name}.pdf"
+    cbz_exists = cbz_path.exists() and cbz_path.stat().st_size > 0
+    pdf_exists = pdf_path.exists() and pdf_path.stat().st_size > 0
+    return DownloadedChapterInfo(image_count=image_count, has_cbz=cbz_exists, has_pdf=pdf_exists)
+
+
+def chapter_is_downloaded(output_dir: str, manga_title: str, chapter: ChapterEntry) -> bool:
+    info = chapter_output_info(output_dir, manga_title, chapter.title)
+    settings = chapter.settings
+    images_ok = info.image_count > 0 if settings.preserve_images else True
+    cbz_ok = info.has_cbz if settings.create_cbz else True
+    pdf_ok = info.has_pdf if settings.create_pdf else True
+    return images_ok and cbz_ok and pdf_ok and (info.image_count > 0 or info.has_cbz or info.has_pdf)
 
 def strip_weebcentral_suffix(value: str) -> str:
     text = re.sub(r"\s*[_|\-]\s*Weeb\s*Central.*$", "", str(value or ""), flags=re.IGNORECASE)
@@ -244,6 +266,14 @@ class WeebCentralClient:
             chapters.append(ChapterEntry(title=name, url=chapter_url))
         return chapters
 
+    def manga_description(self, soup: BeautifulSoup) -> str:
+        for selector in ("[data-description]", "section[x-data] p", "p"):
+            element = soup.select_one(selector)
+            if element and element.get_text(" ", strip=True):
+                return element.get_text(" ", strip=True)[:500]
+        meta = soup.select_one("meta[name='description'], meta[property='og:description']")
+        return str(meta.get("content", "")).strip()[:500] if meta else ""
+
     def cover_url(self, soup: BeautifulSoup) -> str | None:
         for selector in ("img[alt$='cover']", "img[alt*='cover' i]", "img[src*='cover' i]", "img[data-src*='cover' i]"):
             image = soup.select_one(selector)
@@ -279,14 +309,14 @@ class WeebCentralClient:
         if self.is_direct_chapter_url(url):
             manga_name, chapter_name = split_chapter_page_title(self.page_title(soup))
             chapter = ChapterEntry(title=sanitize_filename(chapter_name, "Chapter"), url=url, settings=defaults.clone())
-            return MangaEntry(title=sanitize_filename(manga_name, "Manga"), url=url, chapters=[chapter], settings=defaults.clone())
+            return MangaEntry(title=sanitize_filename(manga_name, "Manga"), url=url, chapters=[chapter], settings=defaults.clone(), cover_url=self.cover_url(soup) or "", description=self.manga_description(soup))
         title = self.manga_title(soup)
         chapters = self.get_chapters(url)
         if not chapters:
             raise RuntimeError("error_no_chapters")
         for chapter in chapters:
             chapter.settings = defaults.clone()
-        return MangaEntry(title=title, url=url, chapters=chapters, settings=defaults.clone())
+        return MangaEntry(title=title, url=url, chapters=chapters, settings=defaults.clone(), cover_url=self.cover_url(soup) or "", description=self.manga_description(soup))
 
     def element_looks_like_placeholder(self, element) -> bool:
         values: list[str] = []
