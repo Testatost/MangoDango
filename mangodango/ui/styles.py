@@ -271,46 +271,12 @@ def build_stylesheet(settings: ThemeSettings) -> str:
         QLabel#Subtitle, QLabel#Muted {{
             color: {c['muted']};
         }}
-        QWidget#LibraryPage, QWidget#LibraryContent, QScrollArea#LibraryScroll {{
-            background: #141414;
-        }}
         QLabel#HeroPanel {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #050505, stop:0.70 #141414);
-            color: #f5f5f5;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #141414, stop:0.70 {c['panel']});
+            color: {c['text']};
             border: 1px solid #e50914;
             border-radius: 14px;
-            padding: 16px 20px;
-            font-size: 14px;
-        }}
-        QFrame#MangaCard {{
-            background: #1f1f1f;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-        }}
-        QFrame#MangaCard:hover {{
-            background: #2a2a2a;
-            border: 1px solid #e50914;
-        }}
-        QLabel#PosterPlaceholder {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #333333, stop:1 #0b0b0b);
-            color: #e50914;
-            border: 1px solid #3a3a3a;
-            border-radius: 8px;
-            font-size: 42px;
-            font-weight: 800;
-        }}
-        QLabel#CardTitle {{
-            color: #ffffff;
-            font-size: 20px;
-            font-weight: 800;
-        }}
-        QLabel#CardMeta {{
-            color: #b3b3b3;
-            font-size: 13px;
-            font-weight: 600;
-        }}
-        QLabel#CardDescription, QLabel#LibraryEmpty {{
-            color: #dddddd;
+            padding: 14px 18px;
             font-size: 14px;
         }}
         QPushButton#HomeButton {{

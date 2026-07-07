@@ -52,7 +52,7 @@ from .constants import (
 )
 from .i18n import SUPPORTED_LANGUAGES, Translator, language_label, normalize_language
 from .models import ChapterEntry, ItemSettings, MangaEntry
-from .scraper import chapter_output_info, normalize_weebcentral_url, sanitize_filename
+from .scraper import chapter_output_info, normalize_weebcentral_url
 from .ui.dialogs import ItemSettingsDialog, PreferencesDialog
 from .ui.styles import ThemeSettings, apply_theme
 from .workers import QueueDownloadWorker, ResolveWorker
@@ -127,10 +127,6 @@ class MainWindow(QMainWindow):
         self.input_group = QGroupBox()
         self.defaults_group = QGroupBox()
         self.hero_label = QLabel()
-        self.view_stack = QStackedWidget()
-        self.library_scroll = QScrollArea()
-        self.library_content = QWidget()
-        self.library_layout = QVBoxLayout()
 
         self._build_ui()
         self._load_settings()
@@ -265,36 +261,16 @@ class MainWindow(QMainWindow):
 
         self.splitter = QSplitter(Qt.Orientation.Vertical)
         self.splitter.setHandleWidth(2)
-
-        library_page = QWidget()
-        library_page.setObjectName("LibraryPage")
-        library_page_layout = QVBoxLayout(library_page)
-        library_page_layout.setContentsMargins(0, 0, 0, 0)
-        library_page_layout.setSpacing(6)
+        queue_panel = QWidget()
+        queue_layout = QVBoxLayout(queue_panel)
+        queue_layout.setContentsMargins(0, 0, 0, 0)
+        queue_layout.setSpacing(6)
         self.hero_label.setObjectName("HeroPanel")
         self.hero_label.setWordWrap(True)
-        self.hero_label.setMinimumHeight(110)
-        self.library_scroll.setObjectName("LibraryScroll")
-        self.library_scroll.setWidgetResizable(True)
-        self.library_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.library_content.setObjectName("LibraryContent")
-        self.library_layout = QVBoxLayout(self.library_content)
-        self.library_layout.setContentsMargins(4, 4, 4, 12)
-        self.library_layout.setSpacing(10)
-        self.library_scroll.setWidget(self.library_content)
-        library_page_layout.addWidget(self.hero_label)
-        library_page_layout.addWidget(self.library_scroll, 1)
-
-        downloader_page = QWidget()
-        downloader_layout = QVBoxLayout(downloader_page)
-        downloader_layout.setContentsMargins(0, 0, 0, 0)
-        downloader_layout.setSpacing(0)
-        downloader_layout.addWidget(self.tree)
-
-        self.view_stack.addWidget(library_page)
-        self.view_stack.addWidget(downloader_page)
-        self.view_stack.setCurrentIndex(0)
-        self.splitter.addWidget(self.view_stack)
+        self.hero_label.setMinimumHeight(94)
+        queue_layout.addWidget(self.hero_label)
+        queue_layout.addWidget(self.tree)
+        self.splitter.addWidget(queue_panel)
         self.splitter.addWidget(self.bottom_panel)
         self.splitter.setSizes([680, 160])
         outer.addWidget(self.splitter, 1)
@@ -473,7 +449,6 @@ class MainWindow(QMainWindow):
             self.tr("columns_status"),
         ])
         self._update_hero_panel()
-        self.refresh_library_view()
         self._fill_combo(self.reading_combo, READING_STYLES, "reading_", getattr(self, "_set_combo_value_later", {}).get("reading"))
         self._fill_combo(self.output_combo, OUTPUT_MODES, "mode_", getattr(self, "_set_combo_value_later", {}).get("output"))
         self._fill_combo(self.format_combo, IMAGE_FORMATS, "format_", getattr(self, "_set_combo_value_later", {}).get("format"))
@@ -1080,9 +1055,9 @@ class MainWindow(QMainWindow):
         if found:
             self.append_log(self.tr("log_local_scan_found", count=found, total=sum(len(m.chapters) for m in scanned)))
 
-    def _update_hero_panel(self, selected_manga: MangaEntry | None = None) -> None:
-        infos = [] if self._library_view_active else (self.selected_item_infos() if hasattr(self, "tree") else [])
-        manga = selected_manga or (infos[0][1] if infos else (self.mangas[0] if self.mangas else None))
+    def _update_hero_panel(self) -> None:
+        infos = self.selected_item_infos() if hasattr(self, "tree") else []
+        manga = infos[0][1] if infos else (self.mangas[0] if self.mangas else None)
         if not manga:
             self.hero_label.setText(self.tr("hero_empty"))
             return

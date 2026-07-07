@@ -196,8 +196,4 @@ TEXT = {'accent': 'Accent color',
  'hero_no_description': 'No description found online yet.',
  'hero_details': '<b>{title}</b><br>{downloaded}/{chapters} chapters already on disk · {status}<br><span style="color:#e50914">Cover</span>: {cover}<br>{description}',
  'log_local_scan_found': 'Local library scan found {count}/{total} downloaded chapters.',
- 'switch_to_downloader': 'Downloader',
- 'switch_to_library': 'MangoDango',
- 'library_empty': 'Your MangoDango library is empty. Add or load a queue to see manga cards here.',
- 'library_card_meta': '{downloaded}/{chapters} chapters on disk · {status}',
 }

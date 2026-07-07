@@ -196,8 +196,4 @@ TEXT = {'accent': 'Akzentfarbe',
  'hero_no_description': 'Online wurde noch keine Beschreibung gefunden.',
  'hero_details': '<b>{title}</b><br>{downloaded}/{chapters} Kapitel bereits auf der Platte · {status}<br><span style="color:#e50914">Cover</span>: {cover}<br>{description}',
  'log_local_scan_found': 'Lokaler Bibliotheks-Scan hat {count}/{total} heruntergeladene Kapitel gefunden.',
- 'switch_to_downloader': 'Downloader',
- 'switch_to_library': 'MangoDango',
- 'library_empty': 'Deine MangoDango-Bibliothek ist leer. Füge eine Warteliste hinzu oder lade sie, um Manga-Karten zu sehen.',
- 'library_card_meta': '{downloaded}/{chapters} Kapitel auf der Platte · {status}',
 }
