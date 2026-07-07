@@ -52,7 +52,7 @@ from .constants import (
 )
 from .i18n import SUPPORTED_LANGUAGES, Translator, language_label, normalize_language
 from .models import ChapterEntry, ItemSettings, MangaEntry
-from .scraper import chapter_output_info, normalize_weebcentral_url
+from .scraper import chapter_output_info, normalize_weebcentral_url, sanitize_filename
 from .ui.dialogs import ItemSettingsDialog, PreferencesDialog
 from .ui.styles import ThemeSettings, apply_theme
 from .workers import QueueDownloadWorker, ResolveWorker
@@ -197,7 +197,11 @@ class MainWindow(QMainWindow):
         input_layout.addWidget(self._input_dir_label, 1, 0)
         input_layout.addWidget(self.output_input, 1, 1, 1, 4)
         input_layout.addWidget(self.browse_button, 1, 5, 1, 2)
-        outer.addWidget(self.input_group)
+        self.downloader_page = QWidget()
+        downloader_layout = QVBoxLayout(self.downloader_page)
+        downloader_layout.setContentsMargins(0, 0, 0, 0)
+        downloader_layout.setSpacing(6)
+        downloader_layout.addWidget(self.input_group)
 
         self.defaults_group.setObjectName("Panel")
         defaults_layout = QHBoxLayout(self.defaults_group)
@@ -219,7 +223,7 @@ class MainWindow(QMainWindow):
         defaults_layout.addWidget(self.threads)
         defaults_layout.addWidget(self._defaults_delay_label, 0)
         defaults_layout.addWidget(self.delay)
-        outer.addWidget(self.defaults_group)
+        downloader_layout.addWidget(self.defaults_group)
 
         action_bar = QHBoxLayout()
         action_bar.setContentsMargins(0, 0, 0, 0)
@@ -238,7 +242,7 @@ class MainWindow(QMainWindow):
             self.reset_button,
         ):
             action_bar.addWidget(button)
-        outer.addLayout(action_bar)
+        downloader_layout.addLayout(action_bar)
 
         self.tree.setAlternatingRowColors(True)
         self.tree.setRootIsDecorated(True)
@@ -273,7 +277,31 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(queue_panel)
         self.splitter.addWidget(self.bottom_panel)
         self.splitter.setSizes([680, 160])
-        outer.addWidget(self.splitter, 1)
+        downloader_layout.addWidget(self.splitter, 1)
+
+        self.library_page = QWidget()
+        library_page_layout = QVBoxLayout(self.library_page)
+        library_page_layout.setContentsMargins(0, 0, 0, 0)
+        library_page_layout.setSpacing(10)
+        self.library_banner = QLabel("MangoDango")
+        self.library_banner.setObjectName("NetflixBanner")
+        self.library_banner.setWordWrap(True)
+        library_page_layout.addWidget(self.library_banner)
+        self.library_scroll = QScrollArea()
+        self.library_scroll.setWidgetResizable(True)
+        self.library_scroll.setObjectName("LibraryScroll")
+        self.library_content = QWidget()
+        self.library_content.setObjectName("LibraryContent")
+        self.library_layout = QVBoxLayout(self.library_content)
+        self.library_layout.setContentsMargins(14, 14, 14, 14)
+        self.library_layout.setSpacing(14)
+        self.library_scroll.setWidget(self.library_content)
+        library_page_layout.addWidget(self.library_scroll, 1)
+
+        self.view_stack = QStackedWidget()
+        self.view_stack.addWidget(self.library_page)
+        self.view_stack.addWidget(self.downloader_page)
+        outer.addWidget(self.view_stack, 1)
 
         self.progress.setRange(0, 100)
         self.stop_button.setEnabled(False)
@@ -930,10 +958,22 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, self.tr("load_queue"), "", self.tr("queue_filter"))
         if not path:
             return
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        try:
+            raw = Path(path).read_text(encoding="utf-8")
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError(self.tr("error_invalid_queue"))
+            mangas_data = data.get("mangas", [])
+            if not isinstance(mangas_data, list):
+                raise ValueError(self.tr("error_invalid_queue"))
+            loaded_mangas = [MangaEntry.from_dict(item) for item in mangas_data if isinstance(item, dict)]
+        except Exception as exc:
+            QMessageBox.critical(self, self.tr("load_queue"), self.tr("error_load_queue", error=exc))
+            self.append_log(self.tr("error_load_queue", error=exc))
+            return
         self._push_undo()
         self.output_input.setText(str(data.get("output_dir", self.output_input.text()) or self.output_input.text()))
-        self.mangas = [MangaEntry.from_dict(item) for item in data.get("mangas", [])]
+        self.mangas = loaded_mangas
         self._library_view_active = True
         self.view_stack.setCurrentIndex(0)
         self.view_toggle_button.setText(self.tr("switch_to_downloader"))
