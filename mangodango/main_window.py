@@ -979,6 +979,9 @@ class MainWindow(QMainWindow):
         self._push_undo()
         self.output_input.setText(str(data.get("output_dir", self.output_input.text()) or self.output_input.text()))
         self.mangas = loaded_mangas
+        self._library_view_active = True
+        self.view_stack.setCurrentIndex(0)
+        self.view_toggle_button.setText(self.tr("switch_to_downloader"))
         self._tree_dirty = True
         self._scan_downloaded_chapters()
         self._set_main_view(True)
