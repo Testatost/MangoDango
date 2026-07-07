@@ -57,31 +57,14 @@ class ItemSettings:
 
 
 @dataclass
-class DownloadedChapterInfo:
-    image_count: int = 0
-    has_cbz: bool = False
-    has_pdf: bool = False
-
-    @property
-    def summary(self) -> str:
-        parts = []
-        if self.image_count:
-            parts.append(f"{self.image_count} images")
-        if self.has_cbz:
-            parts.append("CBZ")
-        if self.has_pdf:
-            parts.append("PDF")
-        return ", ".join(parts) if parts else "not found"
-
-
-@dataclass
 class ChapterEntry:
     title: str
     url: str
     settings: ItemSettings = field(default_factory=ItemSettings)
     enabled: bool = True
     status: str = "pending"
-    local: DownloadedChapterInfo = field(default_factory=DownloadedChapterInfo)
+    progress_text: str = ""
+    eta_text: str = ""
     item_id: str = field(default_factory=_new_id)
 
     @classmethod
@@ -92,6 +75,8 @@ class ChapterEntry:
             settings=ItemSettings.from_dict(data.get("settings")),
             enabled=bool(data.get("enabled", True)),
             status=str(data.get("status", "pending") or "pending"),
+            progress_text=str(data.get("progress_text", "") or ""),
+            eta_text=str(data.get("eta_text", "") or ""),
             item_id=str(data.get("item_id", "")).strip() or _new_id(),
         )
 
@@ -103,6 +88,8 @@ class ChapterEntry:
             "settings": self.settings.to_dict(),
             "enabled": self.enabled,
             "status": self.status,
+            "progress_text": self.progress_text,
+            "eta_text": self.eta_text,
         }
 
 
@@ -114,10 +101,9 @@ class MangaEntry:
     settings: ItemSettings = field(default_factory=ItemSettings)
     enabled: bool = True
     status: str = "pending"
-    local: DownloadedChapterInfo = field(default_factory=DownloadedChapterInfo)
+    progress_text: str = ""
+    eta_text: str = ""
     item_id: str = field(default_factory=_new_id)
-    cover_url: str = ""
-    description: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "MangaEntry":
@@ -128,9 +114,9 @@ class MangaEntry:
             settings=ItemSettings.from_dict(data.get("settings")),
             enabled=bool(data.get("enabled", True)),
             status=str(data.get("status", "pending") or "pending"),
+            progress_text=str(data.get("progress_text", "") or ""),
+            eta_text=str(data.get("eta_text", "") or ""),
             item_id=str(data.get("item_id", "")).strip() or _new_id(),
-            cover_url=str(data.get("cover_url", "") or ""),
-            description=str(data.get("description", "") or ""),
         )
 
     def to_dict(self) -> dict:
@@ -141,9 +127,9 @@ class MangaEntry:
             "settings": self.settings.to_dict(),
             "enabled": self.enabled,
             "status": self.status,
+            "progress_text": self.progress_text,
+            "eta_text": self.eta_text,
             "chapters": [chapter.to_dict() for chapter in self.chapters],
-            "cover_url": self.cover_url,
-            "description": self.description,
         }
 
     def merge_chapters(self, chapters: list[ChapterEntry]) -> int:

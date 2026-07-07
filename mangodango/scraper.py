@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html as html_module
+import json
 import re
 import shutil
 import time
@@ -18,7 +19,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .constants import IMAGE_FORMATS, READING_STYLES
-from .models import ChapterEntry, DownloadedChapterInfo, ItemSettings, MangaEntry
+from .models import ChapterEntry, ItemSettings, MangaEntry
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 PLACEHOLDER_MARKERS = (
@@ -84,28 +85,6 @@ def chapter_number(name: str) -> float | None:
         return None
 
 
-def chapter_output_info(output_dir: str, manga_title: str, chapter_title: str) -> DownloadedChapterInfo:
-    manga_dir = Path(output_dir) / sanitize_filename(manga_title, "Manga")
-    chapter_name = sanitize_filename(chapter_title, "Chapter")
-    chapter_dir = manga_dir / chapter_name
-    image_count = 0
-    if chapter_dir.exists() and chapter_dir.is_dir():
-        image_count = len([item for item in chapter_dir.iterdir() if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS and item.stat().st_size > 0])
-    cbz_path = manga_dir / f"{chapter_name}.cbz"
-    pdf_path = manga_dir / f"{chapter_name}.pdf"
-    cbz_exists = cbz_path.exists() and cbz_path.stat().st_size > 0
-    pdf_exists = pdf_path.exists() and pdf_path.stat().st_size > 0
-    return DownloadedChapterInfo(image_count=image_count, has_cbz=cbz_exists, has_pdf=pdf_exists)
-
-
-def chapter_is_downloaded(output_dir: str, manga_title: str, chapter: ChapterEntry) -> bool:
-    info = chapter_output_info(output_dir, manga_title, chapter.title)
-    settings = chapter.settings
-    images_ok = info.image_count > 0 if settings.preserve_images else True
-    cbz_ok = info.has_cbz if settings.create_cbz else True
-    pdf_ok = info.has_pdf if settings.create_pdf else True
-    return images_ok and cbz_ok and pdf_ok and (info.image_count > 0 or info.has_cbz or info.has_pdf)
-
 def strip_weebcentral_suffix(value: str) -> str:
     text = re.sub(r"\s*[_|\-]\s*Weeb\s*Central.*$", "", str(value or ""), flags=re.IGNORECASE)
     text = re.sub(r"\s*[_|\-]\s*WeebCentral.*$", "", text, flags=re.IGNORECASE)
@@ -121,6 +100,98 @@ def split_chapter_page_title(value: str) -> tuple[str, str]:
     if match:
         return match.group(2).strip(), match.group(1).strip()
     return title or "Manga", title or "Chapter"
+
+
+def chapter_output_paths(output_dir: str | Path, manga_title: str, chapter_title: str) -> dict[str, Path]:
+    manga_dir = Path(output_dir) / sanitize_filename(manga_title, "Manga")
+    chapter_name = sanitize_filename(chapter_title, "Chapter")
+    chapter_dir = manga_dir / chapter_name
+    return {
+        "manga_dir": manga_dir,
+        "chapter_dir": chapter_dir,
+        "cbz": manga_dir / f"{chapter_name}.cbz",
+        "pdf": manga_dir / f"{chapter_name}.pdf",
+        "metadata": manga_dir / ".mangodango.json",
+        "chapter_metadata": chapter_dir / CHAPTER_METADATA_FILE,
+    }
+
+
+def chapter_image_files(chapter_dir: Path) -> list[Path]:
+    if not chapter_dir.exists() or not chapter_dir.is_dir():
+        return []
+    return sorted(
+        [
+            item for item in chapter_dir.iterdir()
+            if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS and item.stat().st_size > 0
+        ],
+        key=lambda item: natural_sort_key(item.name),
+    )
+
+
+def chapter_has_partial_files(chapter_dir: Path) -> bool:
+    if not chapter_dir.exists() or not chapter_dir.is_dir():
+        return False
+    return any(item.is_file() and item.suffix.lower() in {".tmp", ".part", ".download"} for item in chapter_dir.iterdir())
+
+
+def chapter_exists_on_disk(output_dir: str | Path, manga_title: str, chapter_title: str) -> bool:
+    paths = chapter_output_paths(output_dir, manga_title, chapter_title)
+
+    # Archive output is atomic enough to be treated as complete.
+    if paths["cbz"].exists() and paths["cbz"].stat().st_size > 0:
+        return True
+    if paths["pdf"].exists() and paths["pdf"].stat().st_size > 0:
+        return True
+
+    chapter_dir = paths["chapter_dir"]
+    if not chapter_dir.exists() or not chapter_dir.is_dir():
+        return False
+
+    # Newer MangoDango versions write a completion marker after a chapter
+    # finishes successfully. This avoids treating a failed partial folder as done.
+    marker = paths["chapter_metadata"]
+    if marker.exists() and marker.stat().st_size > 0:
+        try:
+            data = json.loads(marker.read_text(encoding="utf-8"))
+            if data.get("complete") is True:
+                return True
+        except Exception:
+            pass
+
+    # Backward compatibility for chapters downloaded before completion markers
+    # existed. A folder with only one or two images is often a failed/partial
+    # download, so do not treat it as complete unless an archive/marker exists.
+    image_files = chapter_image_files(chapter_dir)
+    if chapter_has_partial_files(chapter_dir):
+        return False
+    return len(image_files) >= MIN_COMPLETE_IMAGE_COUNT
+
+
+def write_chapter_metadata(output_dir: str | Path, manga_title: str, chapter_title: str, chapter_url: str, image_count: int) -> None:
+    paths = chapter_output_paths(output_dir, manga_title, chapter_title)
+    chapter_dir = paths["chapter_dir"]
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "app": "MangoDango",
+        "title": chapter_title,
+        "url": chapter_url,
+        "complete": True,
+        "image_count": int(image_count),
+    }
+    paths["chapter_metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def write_manga_metadata(output_dir: str | Path, manga_title: str, manga_url: str) -> None:
+    paths = chapter_output_paths(output_dir, manga_title, "Chapter")
+    manga_dir = paths["manga_dir"]
+    manga_dir.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        "app": "MangoDango",
+        "title": manga_title,
+        "url": manga_url,
+        "updated_at": int(time.time()),
+    }
+    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def decode_url_candidate(value: str | None) -> str | None:
@@ -252,7 +323,7 @@ class WeebCentralClient:
         elements = soup.select("div[x-data] > a[href]") or soup.select("a[href*='/chapters/'], a[href*='/chapter/']")
         chapters: list[ChapterEntry] = []
         seen: set[str] = set()
-        for element in reversed(elements):
+        for element in elements:
             href = element.get("href")
             if not href:
                 continue
@@ -264,15 +335,18 @@ class WeebCentralClient:
             label = element.select_one("span.flex > span") or element
             name = sanitize_filename(label.get_text(" ", strip=True), f"Chapter {len(chapters) + 1}")
             chapters.append(ChapterEntry(title=name, url=chapter_url))
-        return chapters
 
-    def manga_description(self, soup: BeautifulSoup) -> str:
-        for selector in ("[data-description]", "section[x-data] p", "p"):
-            element = soup.select_one(selector)
-            if element and element.get_text(" ", strip=True):
-                return element.get_text(" ", strip=True)[:500]
-        meta = soup.select_one("meta[name='description'], meta[property='og:description']")
-        return str(meta.get("content", "")).strip()[:500] if meta else ""
+        # WeebCentral's chapter list order can differ between pages and over time.
+        # Always download from the lowest chapter number upward so a full manga starts
+        # with Chapter 1 instead of the newest/recent chapter.
+        def sort_key(chapter: ChapterEntry):
+            number = chapter_number(chapter.title)
+            if number is not None:
+                return (0, number, natural_sort_key(chapter.title))
+            return (1, natural_sort_key(chapter.title))
+
+        chapters.sort(key=sort_key)
+        return chapters
 
     def cover_url(self, soup: BeautifulSoup) -> str | None:
         for selector in ("img[alt$='cover']", "img[alt*='cover' i]", "img[src*='cover' i]", "img[data-src*='cover' i]"):
@@ -309,14 +383,14 @@ class WeebCentralClient:
         if self.is_direct_chapter_url(url):
             manga_name, chapter_name = split_chapter_page_title(self.page_title(soup))
             chapter = ChapterEntry(title=sanitize_filename(chapter_name, "Chapter"), url=url, settings=defaults.clone())
-            return MangaEntry(title=sanitize_filename(manga_name, "Manga"), url=url, chapters=[chapter], settings=defaults.clone(), cover_url=self.cover_url(soup) or "", description=self.manga_description(soup))
+            return MangaEntry(title=sanitize_filename(manga_name, "Manga"), url=url, chapters=[chapter], settings=defaults.clone())
         title = self.manga_title(soup)
         chapters = self.get_chapters(url)
         if not chapters:
             raise RuntimeError("error_no_chapters")
         for chapter in chapters:
             chapter.settings = defaults.clone()
-        return MangaEntry(title=title, url=url, chapters=chapters, settings=defaults.clone(), cover_url=self.cover_url(soup) or "", description=self.manga_description(soup))
+        return MangaEntry(title=title, url=url, chapters=chapters, settings=defaults.clone())
 
     def element_looks_like_placeholder(self, element) -> bool:
         values: list[str] = []
@@ -407,37 +481,53 @@ class WeebCentralClient:
         return urls
 
     def reading_style_candidates(self, configured: str) -> list[str]:
-        configured = configured if configured in READING_STYLES else "long_strip"
-        result: list[str] = []
-        for style in (configured, "long_strip", "single_page", "double_page", "double_page_mangaplus"):
-            if style not in result:
-                result.append(style)
-        return result
+        # For downloads, long_strip is the most reliable source for the complete
+        # per-page image list. Some other styles can return only two combined preview
+        # images. Keep the configured style in the list, but choose the source with
+        # the highest real page count instead of assuming the first endpoint is best.
+        ordered = ["long_strip"]
+        if configured in READING_STYLES and configured not in ordered:
+            ordered.append(configured)
+        for style in READING_STYLES:
+            if style not in ordered:
+                ordered.append(style)
+        return ordered
 
-    def image_page_url(self, chapter_url: str, reading_style: str) -> str:
-        return f"{chapter_url.rstrip('/')}/images?reading_style={reading_style}"
+    def image_page_url(self, chapter_url: str, reading_style: str | None = None) -> str:
+        base = f"{chapter_url.rstrip('/')}/images"
+        if reading_style:
+            return f"{base}?reading_style={reading_style}"
+        return base
 
     def chapter_images(self, chapter_url: str, reading_style: str) -> tuple[str, list[str]]:
-        best_url = self.image_page_url(chapter_url, reading_style)
+        best_url = ""
+        best_label = ""
         best: list[str] = []
+
+        candidates: list[tuple[str, str]] = []
         for style in self.reading_style_candidates(reading_style):
+            candidates.append((style, self.image_page_url(chapter_url, style)))
+        candidates.append(("default", self.image_page_url(chapter_url, None)))
+
+        for label, page_url in candidates:
+            if self.stop_callback():
+                break
+            self.log("log_image_page", url=page_url)
             try:
-                page_url = self.image_page_url(chapter_url, style)
-                self.log("log_image_page", url=page_url)
                 urls = self.extract_image_urls(self.fetch_html(page_url), page_url)
             except Exception:
-                continue
+                urls = []
             if len(urls) > len(best):
-                best_url, best = page_url, urls
-            if len(urls) >= 3:
-                if style != reading_style:
-                    self.log("log_style_fallback", style=style)
-                return page_url, urls
-            self.log("log_style_low_count", count=len(urls), style=style)
-        if not best:
-            self.log("log_try_chapter_page")
-            return chapter_url, self.extract_image_urls(self.fetch_html(chapter_url), chapter_url)
-        return best_url, best
+                best_url = page_url
+                best_label = label
+                best = urls
+
+        if best:
+            self.log("log_image_source_selected", style=best_label, count=len(best))
+            return best_url, best
+
+        self.log("log_try_chapter_page")
+        return chapter_url, self.extract_image_urls(self.fetch_html(chapter_url), chapter_url)
 
     def image_extension(self, url: str, content_type: str | None = None) -> str:
         suffix = Path(urlparse(url).path).suffix.lower()
@@ -487,8 +577,10 @@ class WeebCentralClient:
         headers = self.image_headers(referer)
         last_error: Exception | None = None
         for attempt in range(1, 4):
+            if self.stop_callback():
+                raise RuntimeError(self.tr("error_download_stopped"))
             try:
-                response = self.session.get(url, headers=headers, timeout=45, allow_redirects=True)
+                response = self.session.get(url, headers=headers, timeout=20, allow_redirects=True)
                 if response.status_code in {429, 500, 502, 503, 504} and attempt < 3:
                     time.sleep(1.2 * attempt)
                     continue
@@ -564,14 +656,32 @@ class WeebCentralClient:
         completed = 0
         failed = 0
         total_images = len(image_urls)
-        with ThreadPoolExecutor(max_workers=max(1, settings.image_threads)) as executor:
-            futures = {
-                executor.submit(self.download_image, image_url, chapter_dir / f"{page_index:04d}.tmp", page_url, settings.image_format): page_index
-                for page_index, image_url in enumerate(image_urls, start=1)
-            }
+        executor = ThreadPoolExecutor(max_workers=max(1, settings.image_threads))
+        futures = {}
+        stop_requested = False
+        try:
+            for page_index, image_url in enumerate(image_urls, start=1):
+                if self.stop_callback():
+                    stop_requested = True
+                    break
+                future = executor.submit(
+                    self.download_image,
+                    image_url,
+                    chapter_dir / f"{page_index:04d}.tmp",
+                    page_url,
+                    settings.image_format,
+                )
+                futures[future] = page_index
+
             for future in as_completed(futures):
                 if self.stop_callback():
-                    return False
+                    stop_requested = True
+                    for pending in futures:
+                        pending.cancel()
+                    # Do not return from inside the futures loop. Let the finally
+                    # block run, wait for active downloads to leave file I/O safely,
+                    # then return after shutdown.
+                    continue
                 try:
                     future.result()
                     completed += 1
@@ -580,8 +690,16 @@ class WeebCentralClient:
                     self.log("log_image_failed", number=f"{futures[future]:04d}", error=exc)
                 overall = ((chapter_index - 1) + ((completed + failed) / max(1, total_images))) / max(1, total_chapters) * 100
                 progress(overall, f"{chapter.title}: {completed + failed}/{total_images}")
+        finally:
+            # Keep shutdown synchronous. Returning while worker threads are still
+            # writing files caused unstable behavior when Stop was pressed.
+            executor.shutdown(wait=True, cancel_futures=True)
+        if stop_requested or self.stop_callback():
+            self.log("log_download_stopped_after_active")
+            return False
         if completed == 0:
             raise RuntimeError(self.tr("error_no_saved_image"))
+        write_chapter_metadata(output_dir, manga_title, chapter.title, chapter.url, completed)
         if settings.create_cbz:
             target = self.create_cbz(chapter_dir, chapter.title, manga_dir)
             self.log("log_cbz_saved", path=target)

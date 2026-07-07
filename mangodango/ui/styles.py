@@ -262,7 +262,45 @@ def build_stylesheet(settings: ThemeSettings) -> str:
         QCheckBox, QRadioButton {{
             background: transparent;
             color: {c['text']};
-            spacing: 5px;
+            spacing: 6px;
+        }}
+        QCheckBox#SettingsCheckBox {{
+            background: {c['input']};
+            border: 1px solid {c['soft_border']};
+            border-radius: 6px;
+            padding: 4px 9px;
+            margin-left: 2px;
+            margin-right: 2px;
+        }}
+        QCheckBox#SettingsCheckBox:hover {{
+            border: 1px solid {c['accent']};
+            background: {c['panel2']};
+        }}
+        QCheckBox::indicator {{
+            width: 16px;
+            height: 16px;
+            border: 1px solid {c['soft_border']};
+            border-radius: 3px;
+            background: {c['input']};
+        }}
+        QCheckBox::indicator:hover {{
+            border: 1px solid {c['accent']};
+        }}
+        QCheckBox::indicator:checked {{
+            background: {c['accent']};
+            border: 1px solid {c['accent']};
+            image: none;
+        }}
+        QCheckBox::indicator:checked:hover {{
+            background: {c['accent']};
+        }}
+        QFrame#SettingsSeparator {{
+            color: {c['border']};
+            background: {c['border']};
+            min-width: 1px;
+            max-width: 1px;
+            margin-left: 6px;
+            margin-right: 6px;
         }}
         QLabel#Title {{
             font-size: 22px;
@@ -271,80 +309,25 @@ def build_stylesheet(settings: ThemeSettings) -> str:
         QLabel#Subtitle, QLabel#Muted {{
             color: {c['muted']};
         }}
-        QLabel#HeroPanel {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #141414, stop:0.70 {c['panel']});
-            color: {c['text']};
-            border: 1px solid #e50914;
-            border-radius: 14px;
-            padding: 14px 18px;
-            font-size: 14px;
-        }}
-        QLabel#NetflixBanner {{
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #050505, stop:0.45 #141414, stop:1 {c['window']});
-            color: #ffffff;
-            border: 1px solid #2a2a2a;
-            border-radius: 18px;
-            padding: 28px 34px;
-            font-size: 36px;
-            font-weight: 900;
-            letter-spacing: 1px;
-        }}
-        QScrollArea#LibraryScroll {{
-            background: #050505;
-            border: 0;
-            border-radius: 12px;
-        }}
-        QWidget#LibraryContent {{
-            background: #050505;
-        }}
-        QLabel#LibraryEmpty {{
-            background: #141414;
-            color: #b3b3b3;
-            border: 1px dashed #3a3a3a;
-            border-radius: 14px;
-            padding: 26px;
-            font-size: 16px;
-        }}
-        QFrame#MangaCard {{
-            background: #141414;
-            border: 1px solid #242424;
-            border-radius: 14px;
-        }}
-        QFrame#MangaCard:hover {{
-            background: #1f1f1f;
-            border-color: #e50914;
-        }}
-        QLabel#PosterPlaceholder {{
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #e50914, stop:1 #5f0005);
-            color: #ffffff;
-            border-radius: 10px;
-            font-size: 42px;
-            font-weight: 900;
-        }}
-        QLabel#CardTitle {{
-            color: #ffffff;
-            font-size: 20px;
-            font-weight: 800;
-        }}
-        QLabel#CardMeta {{
-            color: #e5e5e5;
-            font-weight: 700;
-        }}
-        QLabel#CardDescription {{
-            color: #b3b3b3;
-        }}
         QPushButton#HomeButton {{
             text-align: left;
-            padding: 0;
-            min-height: 18px;
-            border: 0;
+            padding: 2px 8px;
+            min-height: 22px;
+            border: 1px solid transparent;
+            border-radius: 6px;
             background: transparent;
             color: {c['accent']};
-            font-weight: 600;
+            font-weight: 700;
+            text-decoration: underline;
         }}
         QPushButton#HomeButton:hover {{
-            color: {c['text']};
-            text-decoration: underline;
+            background: {c['input']};
+            border: 1px solid {c['soft_border']};
+            color: {c['accent']};
+        }}
+        QPushButton#HomeButton:pressed {{
+            background: {c['accent']};
+            color: {c['window']};
         }}
         QFrame#Panel, QGroupBox {{
             background: {c['panel']};
