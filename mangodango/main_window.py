@@ -636,15 +636,20 @@ class MainWindow(QMainWindow):
         self._tree_dirty = False
         self._update_hero_panel()
 
-    def toggle_main_view(self) -> None:
-        self._library_view_active = not self._library_view_active
-        self.view_stack.setCurrentIndex(0 if self._library_view_active else 1)
-        self.view_toggle_button.setText(self.tr("switch_to_downloader" if self._library_view_active else "switch_to_library"))
-        if self._library_view_active:
+    def _set_main_view(self, library_active: bool, *, refresh: bool = True) -> None:
+        self._library_view_active = library_active
+        self.view_stack.setCurrentIndex(0 if library_active else 1)
+        self.view_toggle_button.setText(self.tr("switch_to_downloader" if library_active else "switch_to_library"))
+        if not refresh:
+            return
+        if library_active:
             self.refresh_library_view()
             self._update_hero_panel()
         elif self._tree_dirty:
             self.refresh_tree()
+
+    def toggle_main_view(self) -> None:
+        self._set_main_view(not self._library_view_active)
 
     def _clear_library_layout(self) -> None:
         while self.library_layout.count():
@@ -979,8 +984,7 @@ class MainWindow(QMainWindow):
         self.view_toggle_button.setText(self.tr("switch_to_downloader"))
         self._tree_dirty = True
         self._scan_downloaded_chapters()
-        self.refresh_library_view()
-        self._update_hero_panel()
+        self._set_main_view(True)
         self.status_label.setText(self.tr("loaded"))
         self.append_log(self.tr("log_queue_loaded", path=path, count=len(self.mangas)))
 
