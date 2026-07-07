@@ -57,12 +57,31 @@ class ItemSettings:
 
 
 @dataclass
+class DownloadedChapterInfo:
+    image_count: int = 0
+    has_cbz: bool = False
+    has_pdf: bool = False
+
+    @property
+    def summary(self) -> str:
+        parts = []
+        if self.image_count:
+            parts.append(f"{self.image_count} images")
+        if self.has_cbz:
+            parts.append("CBZ")
+        if self.has_pdf:
+            parts.append("PDF")
+        return ", ".join(parts) if parts else "not found"
+
+
+@dataclass
 class ChapterEntry:
     title: str
     url: str
     settings: ItemSettings = field(default_factory=ItemSettings)
     enabled: bool = True
     status: str = "pending"
+    local: DownloadedChapterInfo = field(default_factory=DownloadedChapterInfo)
     item_id: str = field(default_factory=_new_id)
 
     @classmethod
@@ -95,7 +114,10 @@ class MangaEntry:
     settings: ItemSettings = field(default_factory=ItemSettings)
     enabled: bool = True
     status: str = "pending"
+    local: DownloadedChapterInfo = field(default_factory=DownloadedChapterInfo)
     item_id: str = field(default_factory=_new_id)
+    cover_url: str = ""
+    description: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "MangaEntry":
@@ -107,6 +129,8 @@ class MangaEntry:
             enabled=bool(data.get("enabled", True)),
             status=str(data.get("status", "pending") or "pending"),
             item_id=str(data.get("item_id", "")).strip() or _new_id(),
+            cover_url=str(data.get("cover_url", "") or ""),
+            description=str(data.get("description", "") or ""),
         )
 
     def to_dict(self) -> dict:
@@ -118,6 +142,8 @@ class MangaEntry:
             "enabled": self.enabled,
             "status": self.status,
             "chapters": [chapter.to_dict() for chapter in self.chapters],
+            "cover_url": self.cover_url,
+            "description": self.description,
         }
 
     def merge_chapters(self, chapters: list[ChapterEntry]) -> int:

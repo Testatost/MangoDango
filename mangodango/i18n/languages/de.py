@@ -190,4 +190,10 @@ TEXT = {'accent': 'Akzentfarbe',
  'toggle_log_show': 'Log anzeigen',
  'url_label': 'URL(s)',
  'url_placeholder': 'WeebCentral-Links einfügen, eine URL pro Zeile oder per Leerzeichen getrennt',
- 'window_title': 'MangoDango'}
+ 'window_title': 'MangoDango',
+ 'hero_empty': 'Füge einen Manga hinzu, um die Netflix-artige Bibliotheksansicht aufzubauen.',
+ 'hero_no_cover': 'keine Cover-URL gefunden',
+ 'hero_no_description': 'Online wurde noch keine Beschreibung gefunden.',
+ 'hero_details': '<b>{title}</b><br>{downloaded}/{chapters} Kapitel bereits auf der Platte · {status}<br><span style="color:#e50914">Cover</span>: {cover}<br>{description}',
+ 'log_local_scan_found': 'Lokaler Bibliotheks-Scan hat {count}/{total} heruntergeladene Kapitel gefunden.',
+}

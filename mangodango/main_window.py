@@ -49,7 +49,7 @@ from .constants import (
 )
 from .i18n import SUPPORTED_LANGUAGES, Translator, language_label, normalize_language
 from .models import ChapterEntry, ItemSettings, MangaEntry
-from .scraper import normalize_weebcentral_url
+from .scraper import chapter_output_info, normalize_weebcentral_url
 from .ui.dialogs import ItemSettingsDialog, PreferencesDialog
 from .ui.styles import ThemeSettings, apply_theme
 from .workers import QueueDownloadWorker, ResolveWorker
@@ -120,6 +120,7 @@ class MainWindow(QMainWindow):
         self.title_label = QLabel()
         self.input_group = QGroupBox()
         self.defaults_group = QGroupBox()
+        self.hero_label = QLabel()
 
         self._build_ui()
         self._load_settings()
@@ -256,7 +257,11 @@ class MainWindow(QMainWindow):
         queue_panel = QWidget()
         queue_layout = QVBoxLayout(queue_panel)
         queue_layout.setContentsMargins(0, 0, 0, 0)
-        queue_layout.setSpacing(0)
+        queue_layout.setSpacing(6)
+        self.hero_label.setObjectName("HeroPanel")
+        self.hero_label.setWordWrap(True)
+        self.hero_label.setMinimumHeight(94)
+        queue_layout.addWidget(self.hero_label)
         queue_layout.addWidget(self.tree)
         self.splitter.addWidget(queue_panel)
         self.splitter.addWidget(self.bottom_panel)
@@ -291,6 +296,7 @@ class MainWindow(QMainWindow):
         self.home_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://weebcentral.com/")))
         self.language_combo.currentIndexChanged.connect(self.on_language_changed)
         self.tree.itemClicked.connect(self.on_tree_item_clicked)
+        self.tree.itemSelectionChanged.connect(self._update_hero_panel)
         self.tree.customContextMenuRequested.connect(self.show_tree_context_menu)
         self.output_input.editingFinished.connect(self._save_settings)
         for combo in (self.reading_combo, self.output_combo, self.format_combo):
@@ -433,6 +439,7 @@ class MainWindow(QMainWindow):
             self.tr("columns_format"),
             self.tr("columns_status"),
         ])
+        self._update_hero_panel()
         self._fill_combo(self.reading_combo, READING_STYLES, "reading_", getattr(self, "_set_combo_value_later", {}).get("reading"))
         self._fill_combo(self.output_combo, OUTPUT_MODES, "mode_", getattr(self, "_set_combo_value_later", {}).get("output"))
         self._fill_combo(self.format_combo, IMAGE_FORMATS, "format_", getattr(self, "_set_combo_value_later", {}).get("format"))
@@ -526,6 +533,7 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def on_manga_resolved(self, manga: MangaEntry) -> None:
         self._push_undo()
+        self._scan_downloaded_chapters([manga])
         existing = self.find_manga_by_title_or_url(manga.title, manga.url)
         if existing:
             added = existing.merge_chapters(manga.chapters)
@@ -853,7 +861,8 @@ class MainWindow(QMainWindow):
             return
         output_dir = self.output_input.text().strip() or DEFAULT_OUTPUT_DIR
         self._save_settings()
-        active_chapters = sum(1 for manga in self.mangas if manga.enabled for chapter in manga.chapters if chapter.enabled and not (resume and chapter.status == "done"))
+        self._scan_downloaded_chapters()
+        active_chapters = sum(1 for manga in self.mangas if manga.enabled for chapter in manga.chapters if chapter.enabled and chapter.status != "done")
         self.append_log(self.tr("log_download_resumed" if resume else "log_download_started", count=active_chapters, path=output_dir))
         for manga in self.mangas:
             if not manga.enabled:
@@ -865,7 +874,7 @@ class MainWindow(QMainWindow):
             for chapter in manga.chapters:
                 if not chapter.enabled:
                     chapter.status = "skipped"
-                elif resume and chapter.status == "done":
+                elif chapter.status == "done":
                     pass
                 else:
                     chapter.status = "pending"
@@ -917,6 +926,37 @@ class MainWindow(QMainWindow):
         result_key = "download_stopped" if stopped else ("download_finished" if ok else "download_failed")
         self.status_label.setText(self.tr(result_key))
         self.append_log(self.tr("log_download_result", result=self.tr(result_key)))
+
+
+    def _scan_downloaded_chapters(self, mangas: list[MangaEntry] | None = None) -> None:
+        output_dir = self.output_input.text().strip() or DEFAULT_OUTPUT_DIR
+        scanned = mangas or self.mangas
+        found = 0
+        for manga in scanned:
+            for chapter in manga.chapters:
+                chapter.local = chapter_output_info(output_dir, manga.title, chapter.title)
+                if chapter.local.image_count or chapter.local.has_cbz or chapter.local.has_pdf:
+                    found += 1
+                    if chapter.status in {"pending", "ready", "failed", "warning"}:
+                        chapter.status = "done"
+            done = sum(1 for chapter in manga.chapters if chapter.status == "done")
+            if done and done == len(manga.chapters):
+                manga.status = "done"
+            elif done:
+                manga.status = "warning"
+        if found:
+            self.append_log(self.tr("log_local_scan_found", count=found, total=sum(len(m.chapters) for m in scanned)))
+
+    def _update_hero_panel(self) -> None:
+        infos = self.selected_item_infos() if hasattr(self, "tree") else []
+        manga = infos[0][1] if infos else (self.mangas[0] if self.mangas else None)
+        if not manga:
+            self.hero_label.setText(self.tr("hero_empty"))
+            return
+        downloaded = sum(1 for chapter in manga.chapters if chapter.local.image_count or chapter.local.has_cbz or chapter.local.has_pdf or chapter.status == "done")
+        cover = manga.cover_url or self.tr("hero_no_cover")
+        details = manga.description or self.tr("hero_no_description")
+        self.hero_label.setText(self.tr("hero_details", title=manga.title, chapters=len(manga.chapters), downloaded=downloaded, status=self._status_text(manga.status), cover=cover, description=details))
 
     def append_log(self, message: str) -> None:
         self.log_view.append(str(message))
