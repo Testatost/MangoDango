@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import Iterable
 
 from PySide6.QtCore import QLocale, QSettings, Qt, QTimer, QUrl, Slot
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QKeySequence, QShortcut, QTextCursor
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QKeySequence, QPixmap, QShortcut, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
     QCheckBox,
     QComboBox,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -26,10 +27,12 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QSpinBox,
     QDoubleSpinBox,
     QDialog,
+    QStackedWidget,
     QTextEdit,
     QTreeWidget,
     QTreeWidgetItem,
@@ -87,6 +90,8 @@ class MainWindow(QMainWindow):
         self._undo_stack: list[str] = []
         self._redo_stack: list[str] = []
         self._shortcuts: list[QShortcut] = []
+        self._library_view_active = True
+        self._tree_dirty = False
 
         self.url_input = QLineEdit()
         self.output_input = QLineEdit()
@@ -106,6 +111,7 @@ class MainWindow(QMainWindow):
         self.reset_button = QPushButton()
         self.personalize_button = QPushButton()
         self.home_button = QPushButton()
+        self.view_toggle_button = QPushButton()
         self.language_combo = QComboBox()
         self.reading_combo = QComboBox()
         self.output_combo = QComboBox()
@@ -168,6 +174,7 @@ class MainWindow(QMainWindow):
         title_box.addWidget(self.home_button, 0, Qt.AlignmentFlag.AlignLeft)
         top.setContentsMargins(0, 0, 0, 0)
         top.addLayout(title_box, 1)
+        top.addWidget(self.view_toggle_button)
         top.addWidget(self.language_combo)
         top.addWidget(self.personalize_button)
         outer.addLayout(top)
@@ -293,6 +300,7 @@ class MainWindow(QMainWindow):
         self.log_toggle_button.clicked.connect(self.toggle_log)
         self.reset_button.clicked.connect(self.reset_application_data)
         self.personalize_button.clicked.connect(self.open_preferences)
+        self.view_toggle_button.clicked.connect(self.toggle_main_view)
         self.home_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://weebcentral.com/")))
         self.language_combo.currentIndexChanged.connect(self.on_language_changed)
         self.tree.itemClicked.connect(self.on_tree_item_clicked)
@@ -422,6 +430,7 @@ class MainWindow(QMainWindow):
         self.log_toggle_button.setText(self.tr("toggle_log_hide" if self._log_visible else "toggle_log_show"))
         self.reset_button.setText(self.tr("reset"))
         self.personalize_button.setText(self.tr("personalize"))
+        self.view_toggle_button.setText(self.tr("switch_to_downloader" if self._library_view_active else "switch_to_library"))
         self._defaults_reading_label.setText(self.tr("reading_style"))
         self._defaults_output_label.setText(self.tr("output_mode"))
         self._defaults_format_label.setText(self.tr("image_format"))
@@ -540,9 +549,11 @@ class MainWindow(QMainWindow):
             existing.status = "ready"
             self.append_log(self.tr("log_merged_manga", title=existing.title, count=added))
         else:
-            manga.status = "ready"
+            if manga.status not in {"done", "warning"}:
+                manga.status = "ready"
             for chapter in manga.chapters:
-                chapter.status = "pending"
+                if chapter.status != "done":
+                    chapter.status = "pending"
             self.mangas.append(manga)
             self.append_log(self.tr("log_added_manga", title=manga.title, count=len(manga.chapters)))
         self.refresh_tree()
@@ -563,6 +574,11 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self.refresh_tree)
 
     def refresh_tree(self) -> None:
+        if self._library_view_active:
+            self._tree_dirty = True
+            self.refresh_library_view()
+            self._update_hero_panel()
+            return
         expanded_ids: set[str] = set()
         if not self._building_tree:
             for index in range(self.tree.topLevelItemCount()):
@@ -589,6 +605,92 @@ class MainWindow(QMainWindow):
         self.tree.setColumnWidth(3, max(self.tree.columnWidth(3), 190))
         self.tree.setColumnWidth(4, max(self.tree.columnWidth(4), 150))
         self._building_tree = False
+        self._tree_dirty = False
+        self._update_hero_panel()
+
+    def toggle_main_view(self) -> None:
+        self._library_view_active = not self._library_view_active
+        self.view_stack.setCurrentIndex(0 if self._library_view_active else 1)
+        self.view_toggle_button.setText(self.tr("switch_to_downloader" if self._library_view_active else "switch_to_library"))
+        if self._library_view_active:
+            self.refresh_library_view()
+            self._update_hero_panel()
+        elif self._tree_dirty:
+            self.refresh_tree()
+
+    def _clear_library_layout(self) -> None:
+        while self.library_layout.count():
+            item = self.library_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def refresh_library_view(self) -> None:
+        if not hasattr(self, "library_layout"):
+            return
+        self._clear_library_layout()
+        if not self.mangas:
+            empty = QLabel(self.tr("library_empty"))
+            empty.setObjectName("LibraryEmpty")
+            empty.setWordWrap(True)
+            self.library_layout.addWidget(empty)
+            self.library_layout.addStretch(1)
+            return
+        for manga in self.mangas:
+            card = QFrame()
+            card.setObjectName("MangaCard")
+            card.setCursor(Qt.CursorShape.PointingHandCursor)
+            layout = QHBoxLayout(card)
+            layout.setContentsMargins(14, 12, 14, 12)
+            layout.setSpacing(14)
+
+            poster = QLabel()
+            poster.setObjectName("PosterPlaceholder")
+            poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            poster.setFixedSize(94, 132)
+            poster.setToolTip(manga.cover_url or self.tr("hero_no_cover"))
+            pixmap = self._local_cover_pixmap(manga, poster.size())
+            if pixmap and not pixmap.isNull():
+                poster.setPixmap(pixmap)
+            else:
+                poster.setText("M")
+            layout.addWidget(poster)
+
+            info = QVBoxLayout()
+            title = QLabel(manga.title)
+            title.setObjectName("CardTitle")
+            title.setWordWrap(True)
+            downloaded = sum(1 for chapter in manga.chapters if chapter.local.image_count or chapter.local.has_cbz or chapter.local.has_pdf or chapter.status == "done")
+            meta = QLabel(self.tr("library_card_meta", downloaded=downloaded, chapters=len(manga.chapters), status=self._status_text(manga.status)))
+            meta.setObjectName("CardMeta")
+            meta.setWordWrap(True)
+            description = QLabel(manga.description or self.tr("hero_no_description"))
+            description.setObjectName("CardDescription")
+            description.setWordWrap(True)
+            info.addWidget(title)
+            info.addWidget(meta)
+            info.addWidget(description)
+            info.addStretch(1)
+            layout.addLayout(info, 1)
+            card.mousePressEvent = lambda _event, selected=manga: self.select_manga_in_library(selected)
+            self.library_layout.addWidget(card)
+        self.library_layout.addStretch(1)
+
+    def select_manga_in_library(self, manga: MangaEntry) -> None:
+        self._update_hero_panel(manga)
+
+
+    def _local_cover_pixmap(self, manga: MangaEntry, size) -> QPixmap | None:
+        output_dir = self.output_input.text().strip() or DEFAULT_OUTPUT_DIR
+        manga_dir = Path(output_dir) / sanitize_filename(manga.title, "Manga")
+        for name in ("cover.jpg", "cover.jpeg", "cover.png", "cover.webp"):
+            path = manga_dir / name
+            if not path.exists() or path.stat().st_size <= 0:
+                continue
+            pixmap = QPixmap(str(path))
+            if not pixmap.isNull():
+                return pixmap.scaled(size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+        return None
 
     def _setup_item(self, item: QTreeWidgetItem, kind: str, manga_id: str, chapter_id: str) -> None:
         item.setData(0, ROLE_KIND, kind)
@@ -832,7 +934,13 @@ class MainWindow(QMainWindow):
         self._push_undo()
         self.output_input.setText(str(data.get("output_dir", self.output_input.text()) or self.output_input.text()))
         self.mangas = [MangaEntry.from_dict(item) for item in data.get("mangas", [])]
-        self.refresh_tree()
+        self._library_view_active = True
+        self.view_stack.setCurrentIndex(0)
+        self.view_toggle_button.setText(self.tr("switch_to_downloader"))
+        self._tree_dirty = True
+        self._scan_downloaded_chapters()
+        self.refresh_library_view()
+        self._update_hero_panel()
         self.status_label.setText(self.tr("loaded"))
         self.append_log(self.tr("log_queue_loaded", path=path, count=len(self.mangas)))
 
