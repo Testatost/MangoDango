@@ -9,11 +9,12 @@ import sys
 import tempfile
 import time
 import webbrowser
+import zipfile
 from pathlib import Path
 from typing import Iterable
 
-from PySide6.QtCore import QLocale, QSettings, Qt, QTimer, QUrl, Slot
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QKeySequence, QShortcut, QTextCursor
+from PySide6.QtCore import QLocale, QSettings, QSize, Qt, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QKeySequence, QPixmap, QShortcut, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QAbstractItemView,
@@ -32,11 +33,13 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QSpinBox,
     QDoubleSpinBox,
     QDialog,
     QTextEdit,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -55,7 +58,7 @@ from .constants import (
 )
 from .i18n import SUPPORTED_LANGUAGES, Translator, language_label, normalize_language
 from .models import ChapterEntry, ItemSettings, MangaEntry
-from .scraper import IMAGE_EXTENSIONS, chapter_exists_on_disk, natural_sort_key, normalize_weebcentral_url, write_manga_metadata
+from .scraper import IMAGE_EXTENSIONS, chapter_exists_on_disk, natural_sort_key, normalize_weebcentral_url, sanitize_filename, write_manga_metadata
 from .ui.dialogs import BusyProgressDialog, ItemSettingsDialog, MangaReaderDialog, PreferencesDialog, UpdateResultsDialog
 from .ui.styles import ThemeSettings, apply_theme
 from .workers import QueueDownloadWorker, ResolveWorker, UpdateCheckWorker
@@ -65,6 +68,24 @@ ROLE_MANGA_ID = int(Qt.ItemDataRole.UserRole) + 2
 ROLE_CHAPTER_ID = int(Qt.ItemDataRole.UserRole) + 3
 
 INLINE_WIDGET_ROW_LIMIT = 600
+
+
+class LibraryCardButton(QToolButton):
+    openRequested = Signal()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.openRequested.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.openRequested.emit()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
 
 
 class MainWindow(QMainWindow):
@@ -93,6 +114,7 @@ class MainWindow(QMainWindow):
         self._download_finished_result: tuple[bool, bool] | None = None
         self.collect_dialog: BusyProgressDialog | None = None
         self.update_progress_dialog: BusyProgressDialog | None = None
+        self._background_update_check = False
         self._building_tree = False
         self._refresh_tree_pending = False
         self._restoring = False
@@ -134,7 +156,18 @@ class MainWindow(QMainWindow):
         self.progress = QProgressBar()
         self.status_label = QLabel()
         self.log_view = QTextEdit()
+        self.logo_label = QLabel()
         self.title_label = QLabel()
+        self.library_button = QPushButton()
+        self.downloader_button = QPushButton()
+        self.refresh_library_button = QPushButton()
+        self.library_sort_combo = QComboBox()
+        self.library_page = QWidget()
+        self.library_scroll = QScrollArea()
+        self.library_content = QWidget()
+        self.library_grid = QGridLayout(self.library_content)
+        self.library_empty_label = QLabel()
+        self.downloader_page = QWidget()
         self.input_group = QGroupBox()
         self.defaults_group = QGroupBox()
 
@@ -175,23 +208,77 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(8, 6, 8, 6)
         outer.setSpacing(4)
 
-        top = QHBoxLayout()
-        title_box = QVBoxLayout()
-        title_box.setSpacing(0)
-        title_box.setContentsMargins(0, 0, 0, 0)
+        self.logo_label.setObjectName("HeaderLogo")
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.logo_label.setMinimumHeight(58)
+        self.logo_label.setMaximumHeight(78)
+        self._load_header_logo()
+
         self.title_label.setObjectName("Title")
+        self.title_label.setVisible(False)
         self.home_button.setObjectName("HomeButton")
         self.home_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.home_button.setMinimumHeight(24)
         self.home_button.setFlat(False)
         self.home_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        title_box.addWidget(self.title_label)
-        title_box.addWidget(self.home_button, 0, Qt.AlignmentFlag.AlignLeft)
-        top.setContentsMargins(0, 0, 0, 0)
-        top.addLayout(title_box, 1)
-        top.addWidget(self.language_combo)
-        top.addWidget(self.personalize_button)
-        outer.addLayout(top)
+
+        header_row = QGridLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        header_row.setHorizontalSpacing(6)
+        header_row.addWidget(QWidget(), 0, 0)
+        header_row.addWidget(self.logo_label, 0, 1, Qt.AlignmentFlag.AlignCenter)
+        header_row.addWidget(self.home_button, 0, 2, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
+        header_row.setColumnStretch(0, 1)
+        header_row.setColumnStretch(1, 0)
+        header_row.setColumnStretch(2, 1)
+        outer.addLayout(header_row)
+
+        mode_bar = QGridLayout()
+        mode_bar.setContentsMargins(0, 0, 0, 0)
+        mode_bar.setHorizontalSpacing(6)
+        mode_bar.setVerticalSpacing(0)
+        mode_buttons = QHBoxLayout()
+        mode_buttons.setContentsMargins(0, 0, 0, 0)
+        mode_buttons.setSpacing(6)
+        mode_buttons.addWidget(self.library_button)
+        mode_buttons.addWidget(self.downloader_button)
+
+        right_controls = QHBoxLayout()
+        right_controls.setContentsMargins(0, 0, 0, 0)
+        right_controls.setSpacing(6)
+        self.library_sort_combo.setMinimumWidth(190)
+        self.library_sort_combo.setToolTip(self.tr("library_sort_tooltip"))
+        right_controls.addWidget(self.library_sort_combo)
+        right_controls.addWidget(self.language_combo)
+        right_controls.addWidget(self.personalize_button)
+        right_controls.addWidget(self.refresh_library_button)
+
+        mode_bar.addWidget(QWidget(), 0, 0)
+        mode_bar.addLayout(mode_buttons, 0, 1, Qt.AlignmentFlag.AlignCenter)
+        mode_bar.addLayout(right_controls, 0, 2, Qt.AlignmentFlag.AlignRight)
+        mode_bar.setColumnStretch(0, 1)
+        mode_bar.setColumnStretch(1, 0)
+        mode_bar.setColumnStretch(2, 1)
+        outer.addLayout(mode_bar)
+
+        self.library_page.setObjectName("LibraryPage")
+        library_layout = QVBoxLayout(self.library_page)
+        library_layout.setContentsMargins(0, 0, 0, 0)
+        library_layout.setSpacing(6)
+        self.library_empty_label.setObjectName("Muted")
+        self.library_empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.library_grid.setContentsMargins(10, 10, 10, 10)
+        self.library_grid.setHorizontalSpacing(14)
+        self.library_grid.setVerticalSpacing(14)
+        self.library_scroll.setWidget(self.library_content)
+        self.library_scroll.setWidgetResizable(True)
+        library_layout.addWidget(self.library_empty_label)
+        library_layout.addWidget(self.library_scroll, 1)
+        outer.addWidget(self.library_page, 1)
+
+        downloader_layout = QVBoxLayout(self.downloader_page)
+        downloader_layout.setContentsMargins(0, 0, 0, 0)
+        downloader_layout.setSpacing(6)
 
         self.input_group.setObjectName("Panel")
         input_layout = QGridLayout(self.input_group)
@@ -211,7 +298,7 @@ class MainWindow(QMainWindow):
         input_layout.addWidget(self._input_dir_label, 1, 0)
         input_layout.addWidget(self.output_input, 1, 1, 1, 4)
         input_layout.addWidget(self.browse_button, 1, 5, 1, 2)
-        outer.addWidget(self.input_group)
+        downloader_layout.addWidget(self.input_group)
 
         self.defaults_group.setObjectName("Panel")
         defaults_layout = QGridLayout(self.defaults_group)
@@ -265,7 +352,7 @@ class MainWindow(QMainWindow):
         defaults_layout.setColumnStretch(1, 2)
         defaults_layout.setColumnStretch(4, 2)
         defaults_layout.setColumnStretch(7, 2)
-        outer.addWidget(self.defaults_group)
+        downloader_layout.addWidget(self.defaults_group)
 
         action_bar = QGridLayout()
         action_bar.setContentsMargins(0, 0, 0, 0)
@@ -293,7 +380,7 @@ class MainWindow(QMainWindow):
             action_bar.addWidget(button, 1, column)
         for column in range(6):
             action_bar.setColumnStretch(column, 1)
-        outer.addLayout(action_bar)
+        downloader_layout.addLayout(action_bar)
 
         self.tree.setAlternatingRowColors(True)
         self.tree.setRootIsDecorated(True)
@@ -324,7 +411,8 @@ class MainWindow(QMainWindow):
         self.splitter.addWidget(queue_panel)
         self.splitter.addWidget(self.bottom_panel)
         self.splitter.setSizes([680, 160])
-        outer.addWidget(self.splitter, 1)
+        downloader_layout.addWidget(self.splitter, 1)
+        outer.addWidget(self.downloader_page, 1)
 
         self.progress.setRange(0, 100)
         self.stop_button.setEnabled(False)
@@ -334,6 +422,7 @@ class MainWindow(QMainWindow):
         self.delay.setDecimals(1)
         self.delay.setSingleStep(0.5)
         self._sync_log_layout()
+        self.show_library_view()
 
     def _connect_signals(self) -> None:
         self.paste_button.clicked.connect(self.paste_urls)
@@ -353,6 +442,10 @@ class MainWindow(QMainWindow):
         self.reset_button.clicked.connect(self.reset_application_data)
         self.personalize_button.clicked.connect(self.open_preferences)
         self.home_button.pressed.connect(self.open_weebcentral_homepage)
+        self.library_button.clicked.connect(self.show_library_view)
+        self.downloader_button.clicked.connect(self.show_downloader_view)
+        self.refresh_library_button.clicked.connect(self.refresh_library)
+        self.library_sort_combo.currentIndexChanged.connect(self.on_library_sort_changed)
         self.language_combo.currentIndexChanged.connect(self.on_language_changed)
         self.tree.itemClicked.connect(self.on_tree_item_clicked)
         self.tree.customContextMenuRequested.connect(self.show_tree_context_menu)
@@ -403,6 +496,7 @@ class MainWindow(QMainWindow):
             "reading": str(self.settings.value("defaults/reading_style", "long_strip") or "long_strip"),
             "output": str(self.settings.value("defaults/output_mode", "images") or "images"),
             "format": str(self.settings.value("defaults/image_format", "original") or "original"),
+            "library_sort": str(self.settings.value("library/sort_mode", "latest") or "latest"),
         }
 
     def _load_custom_themes(self) -> list[dict]:
@@ -430,6 +524,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue("updates/auto_download", "true" if self.auto_download_updates.isChecked() else "false")
         self.settings.setValue("defaults/image_threads", self.threads.value())
         self.settings.setValue("defaults/request_delay", self.delay.value())
+        self.settings.setValue("library/sort_mode", self.library_sort_mode())
         self.settings.setValue("ui/language", self.language)
         theme = self.theme.normalized()
         self.settings.setValue("ui/theme", theme.mode)
@@ -469,9 +564,31 @@ class MainWindow(QMainWindow):
     def _status_text(self, status: str) -> str:
         return self.tr("status_" + (status or "pending"))
 
+    def _fill_library_sort_combo(self, selected: str | None = None) -> None:
+        current = selected or self.library_sort_mode()
+        self.library_sort_combo.blockSignals(True)
+        self.library_sort_combo.clear()
+        for value in ("latest", "az"):
+            self.library_sort_combo.addItem(self.tr("library_sort_" + value), value)
+        index = self.library_sort_combo.findData(current)
+        if index < 0:
+            index = 0
+        self.library_sort_combo.setCurrentIndex(index)
+        self.library_sort_combo.blockSignals(False)
+
+    def library_sort_mode(self) -> str:
+        return str(self.library_sort_combo.currentData() or getattr(self, "_set_combo_value_later", {}).get("library_sort") or "latest")
+
+    def on_library_sort_changed(self) -> None:
+        self._save_settings()
+        if self.library_page.isVisible():
+            self.refresh_library()
+
+
     def retranslate_ui(self) -> None:
         self.setWindowTitle(self.tr("window_title"))
-        self.title_label.setText(self.tr("app_title"))
+        self.title_label.setText("")
+        self.title_label.setVisible(False)
         self.home_button.setText(self.tr("home_weebcentral_button"))
         self.home_button.setToolTip(self.tr("open_homepage"))
         self.input_group.setTitle("")
@@ -496,6 +613,12 @@ class MainWindow(QMainWindow):
         self.log_toggle_button.setText(self.tr("toggle_log_hide" if self._log_visible else "toggle_log_show"))
         self.reset_button.setText(self.tr("reset"))
         self.personalize_button.setText(self.tr("personalize"))
+        self.library_button.setText(self.tr("library_view"))
+        self.downloader_button.setText(self.tr("downloader_view"))
+        self.refresh_library_button.setText(self.tr("refresh_library"))
+        self.library_sort_combo.setToolTip(self.tr("library_sort_tooltip"))
+        self._fill_library_sort_combo(getattr(self, "_set_combo_value_later", {}).get("library_sort"))
+        self.library_empty_label.setText(self.tr("library_empty"))
         self._defaults_reading_label.setText(self.tr("reading_style"))
         self._defaults_output_label.setText(self.tr("output_mode"))
         self._defaults_format_label.setText(self.tr("image_format"))
@@ -553,21 +676,311 @@ class MainWindow(QMainWindow):
         self.append_log(self.tr("log_theme_applied", theme=self.tr("preset_" + self.theme.normalized().preset)))
         self.append_log(self.tr("log_default_output", folder=self.tr("target_dir_placeholder")))
 
+
+    def _load_header_logo(self) -> None:
+        candidates = [
+            Path.cwd() / "logo-small.png",
+            Path.cwd() / "logo_small.png",
+            Path(__file__).resolve().parents[1] / "logo-small.png",
+            Path(__file__).resolve().parents[1] / "logo_small.png",
+            Path(__file__).resolve().parent / "logo-small.png",
+            Path(__file__).resolve().parent / "logo_small.png",
+        ]
+        for path in candidates:
+            try:
+                if path.exists() and path.is_file():
+                    pixmap = QPixmap(str(path))
+                    if not pixmap.isNull():
+                        self.logo_label.setPixmap(
+                            pixmap.scaled(
+                                180,
+                                64,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation,
+                            )
+                        )
+                        self.logo_label.setVisible(True)
+                        return
+            except Exception:
+                pass
+        self.logo_label.setVisible(False)
+
+    def _find_queue_manga_for_folder(self, folder_title: str) -> MangaEntry | None:
+        normalized_folder = sanitize_filename(folder_title, folder_title).lower()
+        for manga in self.mangas:
+            if manga.title == folder_title:
+                return manga
+            if sanitize_filename(manga.title, manga.title).lower() == normalized_folder:
+                return manga
+        return None
+
+    def _manga_last_chapter_info(self, manga_dir: Path) -> tuple[str, int]:
+        chapters: list[tuple[str, int]] = []
+        try:
+            entries = list(manga_dir.iterdir())
+        except Exception:
+            return "", 0
+        for item in entries:
+            try:
+                if item.is_file() and item.suffix.lower() == ".cbz" and item.stat().st_size > 0:
+                    page_count = 0
+                    try:
+                        with zipfile.ZipFile(item, "r") as archive:
+                            page_count = sum(1 for member in archive.namelist() if Path(member).suffix.lower() in IMAGE_EXTENSIONS)
+                    except Exception:
+                        page_count = 0
+                    chapters.append((item.stem, page_count))
+                elif item.is_file() and item.suffix.lower() == ".pdf" and item.stat().st_size > 0:
+                    chapters.append((item.stem, 0))
+                elif item.is_dir():
+                    images = [
+                        child for child in item.iterdir()
+                        if child.is_file() and child.suffix.lower() in IMAGE_EXTENSIONS and child.stat().st_size > 0
+                    ]
+                    if images:
+                        chapters.append((item.name, len(images)))
+            except Exception:
+                pass
+        if not chapters:
+            return "", 0
+        chapters.sort(key=lambda entry: natural_sort_key(entry[0]))
+        return chapters[-1]
+
+    def show_library_view(self) -> None:
+        self.library_page.setVisible(True)
+        self.downloader_page.setVisible(False)
+        self.library_button.setEnabled(False)
+        self.downloader_button.setEnabled(True)
+        self.refresh_library_button.setVisible(True)
+        try:
+            self.refresh_library()
+        except Exception as exc:
+            self.library_empty_label.setText(self.tr("library_load_failed", error=exc))
+            self.library_empty_label.setVisible(True)
+            self.library_scroll.setVisible(False)
+            self.append_log(self.tr("library_load_failed", error=exc))
+
+    def show_downloader_view(self) -> None:
+        self.library_page.setVisible(False)
+        self.downloader_page.setVisible(True)
+        self.library_button.setEnabled(True)
+        self.downloader_button.setEnabled(False)
+        self.refresh_library_button.setVisible(False)
+
+    def _clear_library_grid(self) -> None:
+        while self.library_grid.count():
+            item = self.library_grid.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+
+    def _manga_dir_metadata(self, manga_dir: Path) -> dict:
+        metadata_path = manga_dir / ".mangodango.json"
+        if not metadata_path.exists():
+            return {}
+        try:
+            data = json.loads(metadata_path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _manga_cover_path(self, manga_dir: Path) -> Path | None:
+        for pattern in ("cover.*", "folder.*", "poster.*"):
+            for path in sorted(manga_dir.glob(pattern), key=lambda item: natural_sort_key(item.name)):
+                if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS and path.stat().st_size > 0:
+                    return path
+        for chapter_dir in sorted([item for item in manga_dir.iterdir() if item.is_dir()], key=lambda item: natural_sort_key(item.name)):
+            try:
+                for image in sorted(chapter_dir.iterdir(), key=lambda item: natural_sort_key(item.name)):
+                    if image.is_file() and image.suffix.lower() in IMAGE_EXTENSIONS and image.stat().st_size > 0:
+                        return image
+            except Exception:
+                pass
+        return None
+
+    def _library_chapter_count(self, manga_dir: Path) -> int:
+        count = 0
+        try:
+            entries = list(manga_dir.iterdir())
+        except Exception:
+            return 0
+        for item in entries:
+            try:
+                if item.is_file() and item.suffix.lower() in {".cbz", ".pdf"} and item.stat().st_size > 0:
+                    count += 1
+                elif item.is_dir():
+                    if any(child.is_file() and child.suffix.lower() in IMAGE_EXTENSIONS and child.stat().st_size > 0 for child in item.iterdir()):
+                        count += 1
+            except Exception:
+                pass
+        return count
+
+    def _library_updated_sort_value(self, manga_dir: Path, metadata: dict) -> float:
+        raw = metadata.get("updated_at", 0)
+        try:
+            value = float(raw)
+            if value > 0:
+                return value
+        except Exception:
+            pass
+
+        latest = 0.0
+        try:
+            latest = manga_dir.stat().st_mtime
+            for item in manga_dir.rglob("*"):
+                try:
+                    if item.is_file():
+                        latest = max(latest, item.stat().st_mtime)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return latest
+
+
+    def _is_manga_read_complete(self, title: str, url: str = "") -> bool:
+        self.settings.sync()
+        title_key = sanitize_filename(title, "manga").lower()
+        if title_key and str(self.settings.value(f"reader/completed/title/{title_key}", "false") or "false").lower() == "true":
+            return True
+        if url:
+            url_key = sanitize_filename(url, "manga").lower()
+            if url_key and str(self.settings.value(f"reader/completed/url/{url_key}", "false") or "false").lower() == "true":
+                return True
+        return False
+
+
+    def scan_library_mangas(self) -> list[dict]:
+        root = Path(self.current_output_dir()).expanduser()
+        if not root.exists() or not root.is_dir():
+            return []
+
+        result: list[dict] = []
+        for manga_dir in sorted([item for item in root.iterdir() if item.is_dir()], key=lambda item: natural_sort_key(item.name)):
+            metadata = self._manga_dir_metadata(manga_dir)
+            title = str(metadata.get("title") or manga_dir.name)
+            url = str(metadata.get("url") or "")
+            queue_manga = self._find_queue_manga_for_folder(manga_dir.name)
+            if queue_manga:
+                title = queue_manga.title or title
+                url = queue_manga.url or url
+                # Backfill missing metadata so future update checks work even
+                # for old downloads that were created before .mangodango.json.
+                if url and not (manga_dir / ".mangodango.json").exists():
+                    try:
+                        write_manga_metadata(self.current_output_dir(), title, url)
+                    except Exception:
+                        pass
+            count = self._library_chapter_count(manga_dir)
+            if count <= 0:
+                continue
+            last_chapter, last_pages = self._manga_last_chapter_info(manga_dir)
+            result.append({
+                "title": title,
+                "url": url,
+                "path": manga_dir,
+                "cover": self._manga_cover_path(manga_dir),
+                "chapters": count,
+                "last_chapter": last_chapter,
+                "last_pages": last_pages,
+                "read_complete": self._is_manga_read_complete(title, url),
+                "updated_at": metadata.get("updated_at", ""),
+                "updated_sort": self._library_updated_sort_value(manga_dir, metadata),
+            })
+
+        if self.library_sort_mode() == "az":
+            result.sort(key=lambda item: str(item.get("title", "")).casefold())
+        else:
+            result.sort(key=lambda item: (-float(item.get("updated_sort", 0.0) or 0.0), str(item.get("title", "")).casefold()))
+        return result
+
+    def refresh_library(self) -> None:
+        self._clear_library_grid()
+        mangas = self.scan_library_mangas()
+        self.library_empty_label.setVisible(not mangas)
+        self.library_scroll.setVisible(bool(mangas))
+
+        columns = 6
+        for index, info in enumerate(mangas):
+            button = LibraryCardButton()
+            button.setObjectName("LibraryCard")
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+            read_marker = "✓ " if info.get("read_complete") else ""
+            button.setText(self.tr(
+                "library_card_text",
+                title=read_marker + str(info["title"]),
+                chapters=info["chapters"],
+                last=info.get("last_chapter", ""),
+                pages=info.get("last_pages", 0),
+            ))
+            button.setIconSize(QSize(170, 240))
+            button.setMinimumSize(190, 300)
+            button.setMaximumWidth(220)
+            button.setToolTip(self.tr(
+                "library_card_tooltip",
+                title=read_marker + str(info["title"]),
+                chapters=info["chapters"],
+                last=info.get("last_chapter", ""),
+                pages=info.get("last_pages", 0),
+                path=str(info["path"]),
+            ))
+
+            cover = info.get("cover")
+            if cover:
+                icon = QIcon(str(cover))
+                if not icon.isNull():
+                    button.setIcon(icon)
+
+            button.openRequested.connect(lambda data=info: self.open_library_manga(data))
+            row = index // columns
+            col = index % columns
+            self.library_grid.addWidget(button, row, col)
+
+        for col in range(columns):
+            self.library_grid.setColumnStretch(col, 1)
+
+        self.append_log(self.tr("library_loaded", count=len(mangas), path=self.current_output_dir()))
+
+    def open_library_manga(self, info: dict) -> None:
+        title = str(info.get("title") or "")
+        url = str(info.get("url") or "")
+        manga = self._manga_from_disk(title, url, self.current_output_dir())
+        if not manga:
+            QMessageBox.information(self, self.tr("reader_title"), self.tr("reader_no_pages"))
+            return
+
+        choice = self._ask_reader_start_choice(manga, self._saved_reader_position_for_manga(manga))
+        if choice is None:
+            return
+
+        start_chapter_id, start_chapter_title, start_page_index, start_global_index, start_after = choice
+        self.open_reader_for_manga(
+            manga,
+            start_chapter_id=start_chapter_id,
+            start_chapter_title=start_chapter_title,
+            start_page_index=start_page_index,
+            start_global_index=start_global_index,
+            start_after=start_after,
+        )
+
     def maybe_check_updates_on_startup(self) -> None:
         if self.check_updates_on_startup.isChecked():
-            self.start_update_check()
+            self.start_update_check(background=True)
 
-    def start_update_check(self) -> None:
+    def start_update_check(self, background: bool = False) -> None:
         if self.update_worker or self.resolve_worker or self.download_worker:
             return
         output_dir = self.current_output_dir()
+        self._background_update_check = background
         self.append_log(self.tr("updates_started", path=output_dir))
-        self.update_progress_dialog = BusyProgressDialog(self.tr, "updates_progress_title", "updates_progress_message", self)
-        self.update_progress_dialog.cancel_button.clicked.connect(self.cancel_update_check)
-        self.update_progress_dialog.show()
-        self.update_progress_dialog.raise_()
-        self.update_progress_dialog.activateWindow()
-        self.update_worker = UpdateCheckWorker(output_dir, self.default_item_settings(), self.language, self)
+        if not background:
+            self.update_progress_dialog = BusyProgressDialog(self.tr, "updates_progress_title", "updates_progress_message", self)
+            self.update_progress_dialog.cancel_button.clicked.connect(self.cancel_update_check)
+            self.update_progress_dialog.show()
+            self.update_progress_dialog.raise_()
+            self.update_progress_dialog.activateWindow()
+        self.update_worker = UpdateCheckWorker(output_dir, self.default_item_settings(), self.language, self.mangas, self)
         self.update_worker.log_message.connect(self.append_log)
         self.update_worker.progress_message.connect(self.on_update_progress)
         self.update_worker.updates_found.connect(self.on_updates_found)
@@ -584,6 +997,8 @@ class MainWindow(QMainWindow):
     def on_update_progress(self, message: str, index: int, total: int) -> None:
         if self.update_progress_dialog:
             self.update_progress_dialog.set_detail(message, index, total)
+        elif self._background_update_check:
+            self.status_label.setText(self.tr("updates_background_status", index=index, total=total))
 
     def add_update_manga_to_queue(self, manga: MangaEntry) -> int:
         """Add update-check results without accidentally disabling selected new chapters."""
@@ -644,6 +1059,23 @@ class MainWindow(QMainWindow):
         if not mangas:
             self.append_log(self.tr("updates_none_found"))
             return
+
+        if self._background_update_check:
+            selected = mangas
+            self._push_undo()
+            active_updates = 0
+            for manga in selected:
+                active_updates += self.add_update_manga_to_queue(manga)
+            self.refresh_tree()
+            self.append_log(self.tr("updates_background_added", count=sum(len(m.chapters) for m in selected)))
+            if self.auto_download_updates.isChecked():
+                if active_updates > 0:
+                    self._start_download(resume=False)
+                else:
+                    self.append_log(self.tr("updates_no_downloadable_chapters"))
+                    self.status_label.setText(self.tr("download_no_active_chapters"))
+            return
+
         dialog = UpdateResultsDialog(mangas, self.tr, self.auto_download_updates.isChecked(), self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             self.append_log(self.tr("updates_dismissed"))
@@ -673,6 +1105,7 @@ class MainWindow(QMainWindow):
         if self.update_worker:
             self.update_worker.deleteLater()
         self.update_worker = None
+        self._background_update_check = False
 
     def paste_urls(self) -> None:
         text = QGuiApplication.clipboard().text().strip()
@@ -686,6 +1119,8 @@ class MainWindow(QMainWindow):
             self.output_input.setText(folder)
             self._save_settings()
             self.append_log(self.tr("log_output_dir_changed", path=folder))
+            if self.library_page.isVisible():
+                self.refresh_library()
 
     def parse_urls(self) -> list[str]:
         raw = self.url_input.text().strip()
@@ -1223,6 +1658,68 @@ class MainWindow(QMainWindow):
             "remembered_page": page_index + 1,
         }
 
+    def _latest_chapter_start_for_manga(self, manga: MangaEntry) -> tuple[str, str, int | None]:
+        for chapter in reversed(manga.chapters):
+            if chapter_exists_on_disk(self.current_output_dir(), manga.title, chapter.title):
+                return chapter.item_id, chapter.title, None
+        if manga.chapters:
+            chapter = manga.chapters[-1]
+            return chapter.item_id, chapter.title, None
+        return "", "", None
+
+    def _reader_start_beginning(self) -> tuple[str, str, int, int | None, bool]:
+        return "", "", 0, None, False
+
+    def _reader_start_latest(self, manga: MangaEntry) -> tuple[str, str, int, int | None, bool]:
+        chapter_id, chapter_title, global_index = self._latest_chapter_start_for_manga(manga)
+        return chapter_id, chapter_title, 0, global_index, False
+
+    def _reader_start_continue(self, saved_position: dict) -> tuple[str, str, int, int | None, bool]:
+        return (
+            saved_position["chapter_id"],
+            saved_position["chapter_title"],
+            saved_position["page_index"],
+            saved_position["global_index"],
+            True,
+        )
+
+    def _ask_reader_start_choice(self, manga: MangaEntry, saved_position: dict | None) -> tuple[str, str, int, int | None, bool] | None:
+        box = QMessageBox(self)
+        box.setWindowTitle(self.tr("reader_start_title"))
+        if saved_position:
+            box.setText(self.tr(
+                "reader_start_text_with_continue",
+                manga=manga.title,
+                chapter=saved_position["chapter_title"],
+                page=saved_position["remembered_page"],
+            ))
+        else:
+            box.setText(self.tr("reader_start_text", manga=manga.title))
+
+        beginning_button = box.addButton(self.tr("reader_start_beginning"), QMessageBox.ButtonRole.AcceptRole)
+        continue_button = box.addButton(self.tr("reader_start_continue"), QMessageBox.ButtonRole.AcceptRole)
+        latest_button = box.addButton(self.tr("reader_start_latest"), QMessageBox.ButtonRole.AcceptRole)
+        cancel_button = box.addButton(QMessageBox.StandardButton.Cancel)
+
+        if not saved_position:
+            continue_button.setEnabled(False)
+            continue_button.setToolTip(self.tr("reader_start_continue_unavailable"))
+
+        box.setDefaultButton(continue_button if saved_position else latest_button)
+        box.exec()
+        clicked = box.clickedButton()
+
+        if clicked is cancel_button:
+            return None
+        if clicked is continue_button and saved_position:
+            return self._reader_start_continue(saved_position)
+        if clicked is latest_button:
+            return self._reader_start_latest(manga)
+        if clicked is beginning_button:
+            return self._reader_start_beginning()
+        return None
+
+
     def open_reader(self) -> None:
         infos = self.selected_item_infos()
         if not infos:
@@ -1236,24 +1733,13 @@ class MainWindow(QMainWindow):
         start_global_index = None
         start_after = False
 
-        saved_position = self._saved_reader_position_for_manga(manga)
-        if saved_position:
-            answer = QMessageBox.question(
-                self,
-                self.tr("reader_continue_title"),
-                self.tr(
-                    "reader_continue_text",
-                    manga=manga.title,
-                    chapter=saved_position["chapter_title"],
-                    page=saved_position["remembered_page"],
-                ),
-            )
-            if answer == QMessageBox.StandardButton.Yes:
-                start_chapter_id = saved_position["chapter_id"]
-                start_chapter_title = saved_position["chapter_title"]
-                start_page_index = saved_position["page_index"]
-                start_global_index = saved_position["global_index"]
-                start_after = True
+        # If a concrete chapter row is selected, open that chapter directly.
+        # If the manga row is selected, ask where reading should start.
+        if chapter is None:
+            choice = self._ask_reader_start_choice(manga, self._saved_reader_position_for_manga(manga))
+            if choice is None:
+                return
+            start_chapter_id, start_chapter_title, start_page_index, start_global_index, start_after = choice
 
         self.open_reader_for_manga(
             manga,
@@ -1290,6 +1776,8 @@ class MainWindow(QMainWindow):
             dialog.deleteLater()
             return
         dialog.exec()
+        if self.library_page.isVisible():
+            self.refresh_library()
 
     def _manga_from_disk(self, title: str, url: str, output_dir: str) -> MangaEntry | None:
         manga_dir = Path(output_dir) / title
@@ -1518,11 +2006,16 @@ class MainWindow(QMainWindow):
             if output_dir:
                 self.output_input.setText(output_dir)
             self.mangas = loaded_mangas
-            self.mark_all_existing_chapters(disable=True)
-            self.refresh_tree()
             row_count = sum(1 + len(manga.chapters) for manga in self.mangas)
+            if row_count <= 2000:
+                self.mark_all_existing_chapters(disable=True)
+            else:
+                self.append_log(self.tr("log_large_queue_disk_scan_skipped", rows=row_count))
+            self.refresh_tree()
             if row_count > INLINE_WIDGET_ROW_LIMIT:
                 self.append_log(self.tr("log_queue_large_optimized", rows=row_count))
+            if self.library_page.isVisible():
+                self.refresh_library()
             self.status_label.setText(self.tr("loaded"))
             self.append_log(self.tr("log_queue_loaded", path=path, count=len(self.mangas)))
         except Exception as exc:
@@ -1683,6 +2176,8 @@ class MainWindow(QMainWindow):
         result_key = "download_stopped" if stopped else ("download_finished" if ok else "download_failed")
         self.status_label.setText(self.tr(result_key))
         self.append_log(self.tr("log_download_result", result=self.tr(result_key)))
+        if self.library_page.isVisible():
+            self.refresh_library()
 
     @Slot()
     def on_download_thread_finished(self) -> None:

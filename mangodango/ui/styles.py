@@ -487,4 +487,29 @@ def build_stylesheet(settings: ThemeSettings) -> str:
             background: {c['border']};
             margin: 0;
         }}
+        QToolButton#LibraryCard {{
+            background: {c['panel2']};
+            border: 1px solid {c['soft_border']};
+            border-radius: 12px;
+            padding: 10px;
+            color: {c['text']};
+            font-weight: 700;
+        }}
+        QToolButton#LibraryCard:hover {{
+            border: 1px solid {c['accent']};
+            background: {c['input']};
+        }}
+        QToolButton#LibraryCard:pressed {{
+            background: {c['button']};
+        }}
+        QWidget#LibraryPage {{
+            background: transparent;
+        }}
+
+        QLabel#HeaderLogo {{
+            background: transparent;
+            padding: 0px;
+            margin: 0px;
+        }}
+
     """

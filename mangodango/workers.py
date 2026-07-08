@@ -72,10 +72,11 @@ class UpdateCheckWorker(QThread):
     updates_found = Signal(object)
     finished_signal = Signal()
 
-    def __init__(self, output_dir: str, defaults: ItemSettings, language: str, parent=None) -> None:
+    def __init__(self, output_dir: str, defaults: ItemSettings, language: str, known_mangas: list[MangaEntry] | None = None, parent=None) -> None:
         super().__init__(parent)
         self.output_dir = output_dir
         self.defaults = defaults
+        self.known_mangas = deepcopy(known_mangas or [])
         self.translator = Translator(language)
         self._stop_requested = False
 
@@ -92,9 +93,39 @@ class UpdateCheckWorker(QThread):
                 result.append(item)
         return sorted(result)
 
+    def _update_candidates(self) -> list[tuple[str, str]]:
+        base = Path(self.output_dir)
+        folder_names = {item.name for item in base.iterdir() if item.is_dir()} if base.exists() else set()
+        candidates: list[tuple[str, str]] = []
+        seen_urls: set[str] = set()
+
+        for path in self._metadata_files():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                title = str(data.get("title", "") or path.parent.name)
+                url = str(data.get("url", "") or "").strip()
+            except Exception:
+                continue
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                candidates.append((title, url))
+
+        for manga in self.known_mangas:
+            if not manga.url or manga.url in seen_urls:
+                continue
+            # Use queue entries as fallback for old download folders without
+            # .mangodango.json. If a folder with the same sanitized name exists,
+            # this manga can be checked for updates.
+            sanitized = sanitize_filename(manga.title, manga.title)
+            if not folder_names or sanitized in folder_names or manga.title in folder_names:
+                seen_urls.add(manga.url)
+                candidates.append((manga.title, manga.url))
+
+        return candidates
+
     def run(self) -> None:
-        metadata_files = self._metadata_files()
-        if not metadata_files:
+        candidates = self._update_candidates()
+        if not candidates:
             self.log_message.emit(self.translator.tr("updates_no_metadata"))
             self.updates_found.emit([])
             self.finished_signal.emit()
@@ -102,21 +133,11 @@ class UpdateCheckWorker(QThread):
 
         client = WeebCentralClient(tr=self.translator.tr, log=self.log_message.emit, stop=lambda: self._stop_requested)
         result: list[MangaEntry] = []
-        seen_urls: set[str] = set()
-        total = len(metadata_files)
+        total = len(candidates)
 
-        for index, path in enumerate(metadata_files, start=1):
+        for index, (title, url) in enumerate(candidates, start=1):
             if self._stop_requested:
                 break
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                title = str(data.get("title", "") or path.parent.name)
-                url = str(data.get("url", "") or "").strip()
-            except Exception:
-                continue
-            if not url or url in seen_urls:
-                continue
-            seen_urls.add(url)
             self.progress_message.emit(self.translator.tr("updates_checking_manga", title=title), index, total)
             try:
                 manga = client.resolve(url, self.defaults)

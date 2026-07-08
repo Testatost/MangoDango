@@ -22,6 +22,8 @@ from .constants import IMAGE_FORMATS, READING_STYLES
 from .models import ChapterEntry, ItemSettings, MangaEntry
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+CHAPTER_METADATA_FILE = ".mangodango_chapter.json"
+MIN_COMPLETE_IMAGE_COUNT = 3
 PLACEHOLDER_MARKERS = (
     "broken_image", "favicon", "logo", "avatar", "placeholder", "failed", "missing",
     "error", "static/images", "assets/images", "data:image/", "base64,",

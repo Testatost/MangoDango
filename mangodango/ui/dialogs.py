@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 import zipfile
 
-from PySide6.QtCore import Qt, QSize, QTimer
-from PySide6.QtGui import QColor, QKeySequence, QPixmap, QShortcut
+from PySide6.QtCore import Qt, QSize, QTimer, QEvent
+from PySide6.QtGui import QColor, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QColorDialog,
     QComboBox,
@@ -33,7 +34,7 @@ from PySide6.QtWidgets import (
 from ..constants import IMAGE_FORMATS, OUTPUT_MODES, READING_STYLES
 from ..models import ChapterEntry, ItemSettings, MangaEntry
 from .styles import PRESET_ORDER, THEME_PRESETS, ThemeSettings, preset_theme, _colors
-from ..scraper import IMAGE_EXTENSIONS, chapter_output_paths, natural_sort_key
+from ..scraper import IMAGE_EXTENSIONS, chapter_output_paths, natural_sort_key, sanitize_filename
 
 
 class ItemSettingsDialog(QDialog):
@@ -488,6 +489,8 @@ class ReaderPage:
 class MangaReaderDialog(QDialog):
     ROLE_PAGE_INDEX = int(Qt.ItemDataRole.UserRole) + 101
     ROLE_IS_CHAPTER = int(Qt.ItemDataRole.UserRole) + 102
+    MIN_ZOOM = 0.35
+    MAX_ZOOM = 4.0
 
     def __init__(
         self,
@@ -517,6 +520,8 @@ class MangaReaderDialog(QDialog):
         )
         self._updating_tree = False
         self._navigation_visible = True
+        self._zoom_factor = 1.0
+        self._base_pixmap = QPixmap()
 
         self.setWindowTitle(self.tr("reader_title"))
         self.resize(1200, 900)
@@ -528,7 +533,10 @@ class MangaReaderDialog(QDialog):
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidget(self.image_label)
-        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.scroll_area.viewport().installEventFilter(self)
+        self.image_label.installEventFilter(self)
 
         self.navigation_tree = QTreeWidget()
         self.navigation_tree.setObjectName("ReaderNavigationTree")
@@ -539,8 +547,12 @@ class MangaReaderDialog(QDialog):
 
         self.toggle_navigation_button = QPushButton()
         self.toggle_navigation_button.setObjectName("ReaderToggleButton")
-        self.toggle_navigation_button.setMaximumWidth(140)
+        self.toggle_navigation_button.setMaximumWidth(150)
         self.toggle_navigation_button.clicked.connect(self.toggle_navigation)
+
+        self.display_mode_combo = QComboBox()
+        self.display_mode_combo.setMinimumWidth(220)
+        self.display_mode_combo.currentIndexChanged.connect(self.on_display_mode_changed)
 
         self.info_label = QLabel()
         self.info_label.setObjectName("Muted")
@@ -548,6 +560,7 @@ class MangaReaderDialog(QDialog):
 
         self.previous_button = QPushButton()
         self.next_button = QPushButton()
+        self.zoom_reset_button = QPushButton()
         self.close_button = QPushButton()
 
         controls = QHBoxLayout()
@@ -556,6 +569,8 @@ class MangaReaderDialog(QDialog):
         controls.addWidget(self.toggle_navigation_button)
         controls.addWidget(self.previous_button)
         controls.addWidget(self.next_button)
+        controls.addWidget(self.display_mode_combo)
+        controls.addWidget(self.zoom_reset_button)
         controls.addStretch(1)
         controls.addWidget(self.close_button)
 
@@ -579,8 +594,10 @@ class MangaReaderDialog(QDialog):
 
         self.previous_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
+        self.zoom_reset_button.clicked.connect(self.reset_zoom)
         self.close_button.clicked.connect(self.accept)
 
+        self._fill_display_modes()
         self._fill_navigation_tree()
 
         for sequence, slot in (
@@ -596,15 +613,34 @@ class MangaReaderDialog(QDialog):
 
         self.retranslate_ui()
         self.show_page()
-
-        # Start maximized as a dedicated reading mode.
         QTimer.singleShot(0, self.showMaximized)
+
+    def _fill_display_modes(self) -> None:
+        current = self.current_display_mode()
+        self.display_mode_combo.blockSignals(True)
+        self.display_mode_combo.clear()
+        for value in ("single", "double", "strip_single", "strip_double"):
+            self.display_mode_combo.addItem(self.tr("reader_mode_" + value), value)
+        index = self.display_mode_combo.findData(current)
+        if index < 0:
+            index = 0
+        self.display_mode_combo.setCurrentIndex(index)
+        self.display_mode_combo.blockSignals(False)
+
+    def current_display_mode(self) -> str:
+        return str(self.display_mode_combo.currentData() or "single")
 
     def retranslate_ui(self) -> None:
         self.toggle_navigation_button.setText(self.tr("reader_hide_navigation") if self._navigation_visible else self.tr("reader_show_navigation"))
         self.previous_button.setText(self.tr("reader_previous"))
         self.next_button.setText(self.tr("reader_next"))
+        self.zoom_reset_button.setText(self.tr("reader_zoom_reset", zoom=int(self._zoom_factor * 100)))
         self.close_button.setText(self.tr("reader_close"))
+        current = self.current_display_mode()
+        self._fill_display_modes()
+        index = self.display_mode_combo.findData(current)
+        if index >= 0:
+            self.display_mode_combo.setCurrentIndex(index)
 
     def toggle_navigation(self) -> None:
         self._navigation_visible = not self._navigation_visible
@@ -612,6 +648,41 @@ class MangaReaderDialog(QDialog):
         if self._navigation_visible:
             self.splitter.setSizes([280, max(400, self.width() - 280)])
         self.retranslate_ui()
+
+    def on_display_mode_changed(self) -> None:
+        self._zoom_factor = 1.0
+        self.show_page()
+
+    def reset_zoom(self) -> None:
+        self._zoom_factor = 1.0
+        self._apply_zoom()
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() == QEvent.Type.Wheel:
+            delta = event.angleDelta().y()
+            if not delta:
+                return True
+
+            # Zoom only while Alt or Ctrl is held. Use QApplication.keyboardModifiers()
+            # as fallback because some Qt/platform combinations do not report
+            # Alt/Ctrl reliably on the wheel event itself.
+            modifiers = event.modifiers() | QApplication.keyboardModifiers()
+            if modifiers & (Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.ControlModifier):
+                factor = 1.12 if delta > 0 else 1 / 1.12
+                self._zoom_factor = max(self.MIN_ZOOM, min(self.MAX_ZOOM, self._zoom_factor * factor))
+                self._apply_zoom()
+                return True
+
+            if self.current_display_mode().startswith("strip"):
+                # Let QScrollArea handle normal vertical scrolling in strip views.
+                return False
+
+            if delta > 0:
+                self.previous_page()
+            else:
+                self.next_page()
+            return True
+        return super().eventFilter(watched, event)
 
     def _collect_pages(self) -> list[ReaderPage]:
         pages: list[ReaderPage] = []
@@ -673,6 +744,9 @@ class MangaReaderDialog(QDialog):
     def _chapter_key(self, page: ReaderPage) -> tuple[str, str]:
         return (page.chapter_id, page.chapter_title)
 
+    def _chapter_pages(self, page: ReaderPage) -> list[ReaderPage]:
+        return [candidate for candidate in self.pages if candidate.chapter_id == page.chapter_id or candidate.chapter_title == page.chapter_title]
+
     def _resolve_start_index(
         self,
         chapter_id: str,
@@ -719,6 +793,133 @@ class MangaReaderDialog(QDialog):
                 return archive.read(page.archive_member)
         return b""
 
+    def _load_pixmap(self, page: ReaderPage) -> QPixmap:
+        pixmap = QPixmap()
+        pixmap.loadFromData(self._page_bytes(page))
+        return pixmap
+
+    def _scale_for_strip(self, pixmap: QPixmap, target_width: int, target_height: int) -> QPixmap:
+        if pixmap.isNull() or pixmap.width() <= 0 or pixmap.height() <= 0:
+            return pixmap
+
+        # In strip mode, 100 % should not mean "force every page to full width".
+        # Each page is fitted into the reader viewport by width AND height. This
+        # prevents landscape pages from appearing massively over-zoomed.
+        scale = min(max(1, target_width) / pixmap.width(), max(1, target_height) / pixmap.height())
+        scale = max(0.01, scale)
+        width = max(1, int(pixmap.width() * scale))
+        height = max(1, int(pixmap.height() * scale))
+        return pixmap.scaled(width, height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+
+    def _compose_horizontal(self, pixmaps: list[QPixmap]) -> QPixmap:
+        pixmaps = [p for p in pixmaps if not p.isNull()]
+        if not pixmaps:
+            return QPixmap()
+        height = max(p.height() for p in pixmaps)
+        scaled = [p.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation) if p.height() != height else p for p in pixmaps]
+        width = sum(p.width() for p in scaled)
+        result = QPixmap(width, height)
+        result.fill(Qt.GlobalColor.white)
+        painter = QPainter(result)
+        x = 0
+        for pixmap in scaled:
+            painter.drawPixmap(x, 0, pixmap)
+            x += pixmap.width()
+        painter.end()
+        return result
+
+    def _compose_vertical(self, rows: list[QPixmap]) -> QPixmap:
+        rows = [row for row in rows if not row.isNull()]
+        if not rows:
+            return QPixmap()
+        width = max(row.width() for row in rows)
+        height = sum(row.height() for row in rows)
+        result = QPixmap(width, height)
+        result.fill(Qt.GlobalColor.white)
+        painter = QPainter(result)
+        y = 0
+        for row in rows:
+            x = (width - row.width()) // 2
+            painter.drawPixmap(x, y, row)
+            y += row.height()
+        painter.end()
+        return result
+
+    def _display_pages_for_current_mode(self) -> list[ReaderPage]:
+        if not self.pages:
+            return []
+        page = self.pages[self.current_index]
+        mode = self.current_display_mode()
+        if mode == "single":
+            return [page]
+        if mode == "double":
+            result = [page]
+            if self.current_index + 1 < len(self.pages):
+                next_page = self.pages[self.current_index + 1]
+                if next_page.chapter_id == page.chapter_id or next_page.chapter_title == page.chapter_title:
+                    result.append(next_page)
+            return result
+        return self._chapter_pages(page)
+
+    def _build_display_pixmap(self) -> QPixmap:
+        display_pages = self._display_pages_for_current_mode()
+        if not display_pages:
+            return QPixmap()
+        mode = self.current_display_mode()
+        if mode == "single":
+            return self._load_pixmap(display_pages[0])
+        if mode == "double":
+            # Manga double-page view is right-to-left: the current/first page
+            # belongs on the right, so the next page is drawn on the left.
+            return self._compose_horizontal([self._load_pixmap(page) for page in reversed(display_pages)])
+
+        viewport = self.scroll_area.viewport().size()
+        strip_width = max(240, viewport.width() - 18)
+        strip_height = max(240, viewport.height() - 18)
+
+        if mode == "strip_single":
+            rows = [self._scale_for_strip(self._load_pixmap(page), strip_width, strip_height) for page in display_pages]
+            return self._compose_vertical(rows)
+        if mode == "strip_double":
+            rows: list[QPixmap] = []
+            index = 0
+            page_width = max(120, (strip_width - 10) // 2)
+            while index < len(display_pages):
+                pair = [self._scale_for_strip(self._load_pixmap(display_pages[index]), page_width, strip_height)]
+                if index + 1 < len(display_pages):
+                    pair.append(self._scale_for_strip(self._load_pixmap(display_pages[index + 1]), page_width, strip_height))
+                # Right-to-left manga ordering: first/current page on the right.
+                rows.append(self._compose_horizontal(list(reversed(pair))))
+                index += 2
+            return self._compose_vertical(rows)
+        return self._load_pixmap(display_pages[0])
+
+    def _apply_zoom(self) -> None:
+        if self._base_pixmap.isNull():
+            return
+        viewport = self.scroll_area.viewport().size()
+        base_w = max(1, self._base_pixmap.width())
+        base_h = max(1, self._base_pixmap.height())
+        available_w = max(1, viewport.width() - 18)
+        available_h = max(1, viewport.height() - 18)
+        mode = self.current_display_mode()
+
+        # 100 % means "fit to the reader": a single page or double page fills
+        # the available width/height without cropping. Strip pixmaps are already
+        # composed from viewport-fitted pages, so avoid a second width fit.
+        if mode.startswith("strip"):
+            fit = 1.0
+        else:
+            fit = max(0.01, min(available_w / base_w, available_h / base_h))
+
+        scale = fit * self._zoom_factor
+        width = max(1, int(base_w * scale))
+        height = max(1, int(base_h * scale))
+        pixmap = self._base_pixmap.scaled(width, height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        self.image_label.setPixmap(pixmap)
+        self.image_label.setFixedSize(pixmap.size())
+        self.zoom_reset_button.setText(self.tr("reader_zoom_reset", zoom=int(self._zoom_factor * 100)))
+
     def _fill_navigation_tree(self) -> None:
         self._updating_tree = True
         try:
@@ -743,7 +944,6 @@ class MangaReaderDialog(QDialog):
                 child.setData(0, self.ROLE_PAGE_INDEX, global_index)
                 child.setData(0, self.ROLE_IS_CHAPTER, False)
 
-            # Default: chapters are collapsed. Users can expand the chapter they need.
             for item in chapter_items.values():
                 item.setExpanded(False)
             self.navigation_tree.resizeColumnToContents(0)
@@ -759,10 +959,8 @@ class MangaReaderDialog(QDialog):
                 parent = self.navigation_tree.topLevelItem(index)
                 if not parent:
                     continue
-
-                # Keep collapsed chapters collapsed. If the current chapter is
-                # collapsed, select the chapter row instead of opening it.
-                parent_page_index = int(parent.data(0, self.ROLE_PAGE_INDEX) or -1)
+                parent_data = parent.data(0, self.ROLE_PAGE_INDEX)
+                parent_page_index = int(parent_data) if parent_data is not None else -1
                 first_page = self.pages[parent_page_index] if 0 <= parent_page_index < len(self.pages) else None
                 if first_page:
                     current = self.pages[self.current_index]
@@ -771,10 +969,10 @@ class MangaReaderDialog(QDialog):
                         self.navigation_tree.setCurrentItem(parent)
                         self.navigation_tree.scrollToItem(parent)
                         return
-
                 for child_index in range(parent.childCount()):
                     child = parent.child(child_index)
-                    if int(child.data(0, self.ROLE_PAGE_INDEX) or -1) == self.current_index:
+                    child_data = child.data(0, self.ROLE_PAGE_INDEX)
+                    if child_data is not None and int(child_data) == self.current_index:
                         self.navigation_tree.setCurrentItem(child)
                         self.navigation_tree.scrollToItem(child)
                         return
@@ -784,10 +982,19 @@ class MangaReaderDialog(QDialog):
     def on_navigation_item_clicked(self, item: QTreeWidgetItem, _column: int = 0) -> None:
         if self._updating_tree:
             return
-        page_index = int(item.data(0, self.ROLE_PAGE_INDEX) or -1)
+        page_data = item.data(0, self.ROLE_PAGE_INDEX)
+        page_index = int(page_data) if page_data is not None else -1
         if page_index < 0:
             return
+
+        # Clicking a chapter opens its first page and expands it, so the first
+        # pages are immediately selectable. Index 0 is valid and must not be
+        # treated as "missing".
+        if bool(item.data(0, self.ROLE_IS_CHAPTER)):
+            item.setExpanded(True)
+
         self.current_index = max(0, min(len(self.pages) - 1, page_index))
+        self._zoom_factor = 1.0
         self.show_page()
 
     def show_page(self) -> None:
@@ -801,20 +1008,12 @@ class MangaReaderDialog(QDialog):
 
         self.current_index = max(0, min(len(self.pages) - 1, self.current_index))
         page = self.pages[self.current_index]
-        pixmap = QPixmap()
-        pixmap.loadFromData(self._page_bytes(page))
-        if pixmap.isNull():
+        self._base_pixmap = self._build_display_pixmap()
+        if self._base_pixmap.isNull():
             self.image_label.clear()
             self.image_label.setText(self.tr("reader_page_load_failed"))
         else:
-            viewport_size = self.scroll_area.viewport().size()
-            if viewport_size.width() > 10 and viewport_size.height() > 10:
-                pixmap = pixmap.scaled(
-                    viewport_size,
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            self.image_label.setPixmap(pixmap)
+            self._apply_zoom()
 
         self.info_label.setText(
             self.tr(
@@ -835,6 +1034,17 @@ class MangaReaderDialog(QDialog):
     def _chapter_page_count(self, chapter_id: str, chapter_title: str) -> int:
         return sum(1 for page in self.pages if page.chapter_id == chapter_id or page.chapter_title == chapter_title)
 
+    def _reader_completed_keys(self, page: ReaderPage) -> list[str]:
+        keys: list[str] = []
+        title_key = sanitize_filename(page.manga_title, "manga").lower()
+        if title_key:
+            keys.append(f"reader/completed/title/{title_key}")
+        if page.manga_url:
+            url_key = sanitize_filename(page.manga_url, "manga").lower()
+            if url_key:
+                keys.append(f"reader/completed/url/{url_key}")
+        return keys
+
     def _save_position(self, page: ReaderPage) -> None:
         if self.settings is None:
             return
@@ -846,6 +1056,12 @@ class MangaReaderDialog(QDialog):
         self.settings.setValue("reader/last_page_index", page.page_index)
         self.settings.setValue("reader/last_global_index", self.current_index)
         self.settings.setValue("reader/last_output_dir", self.output_dir)
+
+        # Mark the manga as read when the reader reaches the final page.
+        if self.pages and self.current_index >= len(self.pages) - 1:
+            for key in self._reader_completed_keys(page):
+                self.settings.setValue(key, "true")
+
         self.settings.sync()
 
     def save_current_position(self) -> None:
@@ -868,16 +1084,20 @@ class MangaReaderDialog(QDialog):
 
     def previous_page(self) -> None:
         if self.current_index > 0:
-            self.current_index -= 1
+            step = 2 if self.current_display_mode() == "double" else 1
+            self.current_index = max(0, self.current_index - step)
             self.show_page()
 
     def next_page(self) -> None:
         if self.current_index < len(self.pages) - 1:
-            self.current_index += 1
+            step = 2 if self.current_display_mode() == "double" else 1
+            self.current_index = min(len(self.pages) - 1, self.current_index + step)
             self.show_page()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self.show_page()
+        if self.pages:
+            self._base_pixmap = self._build_display_pixmap()
+        self._apply_zoom()
 
 
