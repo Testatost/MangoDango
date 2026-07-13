@@ -96,12 +96,96 @@ def is_newer_version(remote: str, current: str = __version__) -> bool:
     return current_pre and not remote_pre
 
 
+def _linux_distribution_tokens() -> set[str]:
+    """Return normalized Linux distribution identifiers from /etc/os-release."""
+    if not sys.platform.startswith("linux"):
+        return set()
+
+    tokens: set[str] = set()
+    try:
+        os_release = Path("/etc/os-release")
+        if not os_release.is_file():
+            return tokens
+        for raw_line in os_release.read_text(encoding="utf-8", errors="ignore").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if key not in {"ID", "ID_LIKE"}:
+                continue
+            value = value.strip().strip('"\'').lower()
+            tokens.update(part for part in re.split(r"[\s,]+", value) if part)
+    except OSError:
+        pass
+    return tokens
+
+
+def _asset_platform_family(name: str) -> str:
+    """Classify a release asset by filename only.
+
+    Returns ``windows``, ``linux``, ``macos`` or ``generic``. Generic assets
+    remain eligible for the current platform, but explicitly foreign assets are
+    rejected before scoring. This prevents a plain ``MangoDango.exe`` from
+    being selected on Linux just because it has no ``windows`` token in its
+    filename.
+    """
+    lower = name.lower()
+
+    windows_extensions = (".exe", ".msi", ".msix", ".appx")
+    mac_extensions = (".dmg", ".pkg")
+    linux_extensions = (".appimage",)
+
+    if lower.endswith(windows_extensions):
+        return "windows"
+    if lower.endswith(mac_extensions):
+        return "macos"
+    if lower.endswith(linux_extensions):
+        return "linux"
+
+    windows_tokens = (
+        "windows", "win32", "win64", "win-x86", "win-x64", "win_arm64",
+        "win-arm64", "win_amd64", "win-amd64",
+    )
+    linux_tokens = (
+        "linux", "appimage", "fedora", "linuxmint", "mint", "ubuntu",
+        "debian", "archlinux", "rhel", "centos",
+    )
+    mac_tokens = ("macos", "darwin", "osx", "mac-x64", "mac-arm64")
+
+    if any(token in lower for token in windows_tokens):
+        return "windows"
+    if any(token in lower for token in linux_tokens):
+        return "linux"
+    if any(token in lower for token in mac_tokens):
+        return "macos"
+    return "generic"
+
+
+def _current_platform_family() -> str:
+    if sys.platform == "win32":
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    if sys.platform.startswith("linux"):
+        return "linux"
+    return "generic"
+
+
 def _asset_score(name: str) -> int:
     lower = name.lower()
     if any(token in lower for token in ("sha256", "checksum", ".sig", ".asc", "symbols", "debug")):
         return -10_000
     if "source" in lower or re.search(r"(?:^|[-_.])src(?:[-_.]|$)", lower):
         return -500
+
+    current_family = _current_platform_family()
+    asset_family = _asset_platform_family(name)
+
+    # Explicitly reject foreign binaries instead of merely penalizing them.
+    # The old score-only approach could tie ``MangoDango.exe`` with a raw Linux
+    # executable named ``MangoDango`` and then pick whichever GitHub listed first.
+    if current_family != "generic" and asset_family not in {"generic", current_family}:
+        return -10_000
 
     machine = platform.machine().lower()
     architecture_tokens = {
@@ -111,43 +195,78 @@ def _asset_score(name: str) -> int:
         "arm64": ("aarch64", "arm64"),
     }.get(machine, (machine,) if machine else ())
 
-    if sys.platform == "win32":
-        wanted = ("windows", "win64", "win32", "win")
-        foreign = ("linux", "appimage", "macos", "darwin", "osx")
-        extension_score = 80 if lower.endswith(".exe") else 45 if lower.endswith(".zip") else 0
-    elif sys.platform == "darwin":
-        wanted = ("macos", "darwin", "osx", "mac")
-        foreign = ("windows", "win64", "win32", "linux", "appimage")
-        extension_score = 55 if lower.endswith(".zip") else 35 if lower.endswith((".tar.gz", ".tgz")) else 0
-    else:
-        wanted = ("linux", "appimage")
-        foreign = ("windows", "win64", "win32", "macos", "darwin", "osx")
-        extension_score = 80 if lower.endswith(".appimage") else 45 if lower.endswith(".zip") else 35 if lower.endswith((".tar.gz", ".tgz")) else 0
+    score = 0
+    if current_family == "windows":
+        if lower.endswith(".exe"):
+            score += 120
+        elif lower.endswith((".zip", ".7z")):
+            score += 55
+    elif current_family == "macos":
+        if lower.endswith(".dmg"):
+            score += 120
+        elif lower.endswith(".zip"):
+            score += 60
+        elif lower.endswith((".tar.gz", ".tgz", ".tar")):
+            score += 50
+    elif current_family == "linux":
+        if lower.endswith(".appimage"):
+            score += 130
+        elif lower.endswith(".zip"):
+            score += 65
+        elif lower.endswith((".tar.gz", ".tgz", ".tar")):
+            score += 60
+        elif "." not in Path(name).name:
+            # PyInstaller one-file Linux builds commonly have no extension.
+            score += 80
 
-    score = extension_score
-    if any(token in lower for token in wanted):
-        score += 60
-    if any(token in lower for token in foreign):
-        score -= 120
+        distro_tokens = _linux_distribution_tokens()
+        is_fedora_family = bool(distro_tokens & {"fedora", "rhel", "centos"})
+        is_mint_family = "linuxmint" in distro_tokens or "mint" in distro_tokens
+        is_debian_family = bool(distro_tokens & {"debian", "ubuntu"}) or is_mint_family
+
+        if is_fedora_family:
+            if any(token in lower for token in ("fedora", "rhel", "centos")):
+                score += 70
+            if any(token in lower for token in ("linuxmint", "mint", "ubuntu", "debian")):
+                score -= 80
+        elif is_mint_family:
+            if any(token in lower for token in ("linuxmint", "mint")):
+                score += 80
+            elif any(token in lower for token in ("ubuntu", "debian")):
+                score += 35
+            if any(token in lower for token in ("fedora", "rhel", "centos")):
+                score -= 80
+        elif is_debian_family:
+            if any(token in lower for token in ("debian", "ubuntu")):
+                score += 50
+            if any(token in lower for token in ("fedora", "rhel", "centos")):
+                score -= 80
+
+    if asset_family == current_family:
+        score += 70
     if architecture_tokens and any(token in lower for token in architecture_tokens):
-        score += 20
+        score += 25
     if "mangodango" in lower:
         score += 10
     return score
 
 
 def _select_compatible_asset(assets: list[dict]) -> dict | None:
-    scored: list[tuple[int, dict]] = []
-    for asset in assets:
+    scored: list[tuple[int, int, dict]] = []
+    for index, asset in enumerate(assets):
         name = str(asset.get("name", "") or "")
         url = str(asset.get("browser_download_url", "") or "")
         if not name or not url:
             continue
-        scored.append((_asset_score(name), asset))
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    if not scored or scored[0][0] <= 0:
+        score = _asset_score(name)
+        if score <= 0:
+            continue
+        # Preserve GitHub order only as the final tie-breaker.
+        scored.append((score, -index, asset))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    if not scored:
         return None
-    return scored[0][1]
+    return scored[0][2]
 
 
 def fetch_latest_release(current_version: str = __version__, timeout: float = 30.0) -> ReleaseInfo:
