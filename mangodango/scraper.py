@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from pathlib import Path
 from typing import Callable
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -19,6 +19,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .constants import IMAGE_FORMATS, READING_STYLES
+from .i18n import tr_message
 from .models import ChapterEntry, ItemSettings, MangaEntry
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -31,7 +32,7 @@ PLACEHOLDER_MARKERS = (
 MIN_PAGE_WIDTH = 300
 MIN_PAGE_HEIGHT = 300
 
-LogCallback = Callable[[str], None]
+LogCallback = Callable[[object], None]
 ProgressCallback = Callable[[float, str], None]
 StopCallback = Callable[[], bool]
 TranslateCallback = Callable[..., str]
@@ -78,13 +79,57 @@ def natural_sort_key(value: str) -> list[object]:
 
 
 def chapter_number(name: str) -> float | None:
-    match = re.search(r"(?:chapter\s*)?(\d+(?:\.\d+)?)", str(name).lower())
+    """Return the most likely reading-order number from a chapter label.
+
+    Prefer explicit chapter-like prefixes before falling back to the first
+    numeric value. This avoids treating a volume number as the chapter number in
+    labels such as ``Vol. 42 - Chapter 386``.
+    """
+    text = str(name or "").lower()
+    patterns = (
+        r"\b(?:chapter|chap(?:ter)?|ch\.?)\s*#?\s*(\d+(?:\.\d+)?)",
+        r"\b(?:prologue|prolog|prelude|episode|ep\.?|part|act)\s*#?\s*(\d+(?:\.\d+)?)",
+    )
+    match = None
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            break
+    if match is None:
+        match = re.search(r"(\d+(?:\.\d+)?)", text)
     if not match:
         return None
     try:
         return float(match.group(1))
     except ValueError:
         return None
+
+
+def chapter_sort_key(value: str) -> tuple[object, ...]:
+    """Natural reading-order key for mixed chapter naming schemes.
+
+    A plain lexical/natural sort puts every ``Chapter ...`` folder before every
+    ``Prologue ...`` folder. For series such as Berserk this makes the reader jump
+    to the prologues only after the numbered chapters. Prologues/preludes are
+    therefore grouped before regular chapters, while epilogues/afterwords are
+    grouped after them. Numbers and the natural label order remain tie-breakers.
+    """
+    text = str(value or "").strip()
+    lower = text.casefold()
+    if re.search(r"\b(?:prologue|prolog|prelude|pilot)\b", lower):
+        phase = 0
+    elif re.search(r"\b(?:epilogue|epilog|afterword)\b", lower):
+        phase = 2
+    else:
+        phase = 1
+
+    number = chapter_number(text)
+    return (
+        phase,
+        0 if number is not None else 1,
+        number if number is not None else float("inf"),
+        natural_sort_key(text),
+    )
 
 
 def strip_weebcentral_suffix(value: str) -> str:
@@ -183,17 +228,52 @@ def write_chapter_metadata(output_dir: str | Path, manga_title: str, chapter_tit
     paths["chapter_metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def read_manga_metadata_dir(manga_dir: str | Path) -> dict:
+    path = Path(manga_dir) / ".mangodango.json"
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def write_manga_metadata_dir(manga_dir: str | Path, data: dict) -> None:
+    manga_dir = Path(manga_dir)
+    manga_dir.mkdir(parents=True, exist_ok=True)
+    (manga_dir / ".mangodango.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def read_manga_metadata(output_dir: str | Path, manga_title: str) -> dict:
+    return read_manga_metadata_dir(chapter_output_paths(output_dir, manga_title, "Chapter")["manga_dir"])
+
+
+def merge_manga_metadata(output_dir: str | Path, manga_title: str, **fields) -> dict:
+    """Update selected metadata fields without clobbering the rest."""
+    manga_dir = chapter_output_paths(output_dir, manga_title, "Chapter")["manga_dir"]
+    data = read_manga_metadata_dir(manga_dir)
+    data.setdefault("app", "MangoDango")
+    data.setdefault("title", manga_title)
+    for key, value in fields.items():
+        data[key] = value
+    write_manga_metadata_dir(manga_dir, data)
+    return data
+
+
 def write_manga_metadata(output_dir: str | Path, manga_title: str, manga_url: str) -> None:
     paths = chapter_output_paths(output_dir, manga_title, "Chapter")
     manga_dir = paths["manga_dir"]
-    manga_dir.mkdir(parents=True, exist_ok=True)
-    metadata = {
+    # Preserve any per-manga flags (favorite, check_updates, auto_download, cover)
+    # that a re-download must not overwrite.
+    metadata = read_manga_metadata_dir(manga_dir)
+    metadata.update({
         "app": "MangoDango",
         "title": manga_title,
         "url": manga_url,
         "updated_at": int(time.time()),
-    }
-    paths["metadata"].write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    })
+    write_manga_metadata_dir(manga_dir, metadata)
 
 
 def decode_url_candidate(value: str | None) -> str | None:
@@ -264,7 +344,7 @@ class WeebCentralClient:
 
     def log(self, key_or_message: str, **kwargs) -> None:
         if key_or_message.startswith(("log_", "error_", "status_")):
-            self.log_callback(self.tr(key_or_message, **kwargs))
+            self.log_callback(tr_message(key_or_message, **kwargs))
         else:
             self.log_callback(key_or_message)
 
@@ -335,19 +415,16 @@ class WeebCentralClient:
                 continue
             seen.add(chapter_url)
             label = element.select_one("span.flex > span") or element
-            name = sanitize_filename(label.get_text(" ", strip=True), f"Chapter {len(chapters) + 1}")
+            name = sanitize_filename(
+                label.get_text(" ", strip=True),
+                self.tr("chapter_fallback", number=len(chapters) + 1),
+            )
             chapters.append(ChapterEntry(title=name, url=chapter_url))
 
         # WeebCentral's chapter list order can differ between pages and over time.
         # Always download from the lowest chapter number upward so a full manga starts
         # with Chapter 1 instead of the newest/recent chapter.
-        def sort_key(chapter: ChapterEntry):
-            number = chapter_number(chapter.title)
-            if number is not None:
-                return (0, number, natural_sort_key(chapter.title))
-            return (1, natural_sort_key(chapter.title))
-
-        chapters.sort(key=sort_key)
+        chapters.sort(key=lambda chapter: chapter_sort_key(chapter.title))
         return chapters
 
     def cover_url(self, soup: BeautifulSoup) -> str | None:
@@ -378,6 +455,62 @@ class WeebCentralClient:
             self.log("log_cover_saved")
         except Exception:
             return
+
+    def search_series(self, query: str) -> list[tuple[str, str]]:
+        """Search weebcentral for a series by name.
+
+        Returns a list of ``(title, series_url)`` matches (best first). Used to
+        recover a manga's URL when its metadata file is missing.
+        """
+        query = (query or "").strip()
+        if not query:
+            return []
+        results: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        urls = [
+            f"{self.base_url}/search/data?author=&text={quote_plus(query)}&sort=Best+Match&order=Descending&official=Any&anime=Any&adult=Any&display_mode=Full+Display",
+            f"{self.base_url}/search?text={quote_plus(query)}",
+        ]
+        for search_url in urls:
+            try:
+                soup = BeautifulSoup(self.fetch_html(search_url), "html.parser")
+            except Exception:
+                continue
+            for anchor in soup.select("a[href*='/series/']"):
+                href = anchor.get("href")
+                if not href:
+                    continue
+                series_url = urljoin(self.base_url, str(href))
+                parts = [p for p in urlparse(series_url).path.split("/") if p]
+                if len(parts) < 2 or parts[0] != "series":
+                    continue
+                canonical = f"{self.base_url}/series/{parts[1]}"
+                if canonical in seen:
+                    continue
+                seen.add(canonical)
+                label = anchor.get_text(" ", strip=True) or parts[-1]
+                results.append((strip_weebcentral_suffix(label), canonical))
+            if results:
+                break
+        return results
+
+    def recover_series_url(self, title: str) -> str:
+        """Best-effort URL recovery for a downloaded manga folder.
+
+        Returns the series URL of the closest name match, or an empty string.
+        """
+        import difflib
+        wanted = sanitize_filename(title, "").lower()
+        best_url = ""
+        best_score = 0.0
+        for label, url in self.search_series(title):
+            candidate = sanitize_filename(label, "").lower()
+            score = difflib.SequenceMatcher(None, wanted, candidate).ratio()
+            if candidate == wanted:
+                return url
+            if score > best_score:
+                best_score, best_url = score, url
+        return best_url if best_score >= 0.6 else ""
 
     def resolve(self, raw_url: str, defaults: ItemSettings) -> MangaEntry:
         url = normalize_weebcentral_url(raw_url)

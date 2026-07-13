@@ -4,11 +4,11 @@ import ctypes
 import sys
 from pathlib import Path
 
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QElapsedTimer, QThread
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from .constants import APP_NAME, ORG_NAME
-from .main_window import MainWindow
 
 
 def resource_path(*parts: str) -> Path:
@@ -35,6 +35,16 @@ def load_app_icon() -> QIcon:
     return QIcon()
 
 
+def load_splash_pixmap() -> QPixmap:
+    """Load the startup splash image from bundled or source assets."""
+    splash_path = resource_path("splash.png")
+    if splash_path.exists():
+        pixmap = QPixmap(str(splash_path))
+        if not pixmap.isNull():
+            return pixmap
+    return QPixmap()
+
+
 def set_windows_app_user_model_id() -> None:
     """Make Windows group the taskbar entry under MangoDango and use the app icon."""
     if sys.platform != "win32":
@@ -58,9 +68,35 @@ def main() -> int:
     if not app_icon.isNull():
         app.setWindowIcon(app_icon)
 
+    splash_timer = QElapsedTimer()
+    splash_timer.start()
+    splash_pixmap = load_splash_pixmap()
+    splash = None
+    if not splash_pixmap.isNull():
+        splash = QSplashScreen(splash_pixmap)
+        if not app_icon.isNull():
+            splash.setWindowIcon(app_icon)
+        splash.show()
+        app.processEvents()
+
+    # Delay importing the main window until the splash screen is visible so
+    # import and initialization time is covered by the startup image.
+    from .main_window import MainWindow
+
     window = MainWindow()
     if not app_icon.isNull():
         window.setWindowIcon(app_icon)
 
     window.showMaximized()
+    app.processEvents()
+
+    if splash is not None:
+        minimum_splash_duration_ms = 2000  # 2 Sekunden
+        remaining_time = minimum_splash_duration_ms - splash_timer.elapsed()
+
+        if remaining_time > 0:
+            QThread.msleep(remaining_time)
+
+        splash.finish(window)
+
     return app.exec()

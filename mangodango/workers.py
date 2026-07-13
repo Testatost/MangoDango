@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import json
 import time
 from copy import deepcopy
-from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 
-from .i18n import Translator
+from . import engine
+from .i18n import Translator, tr_message
 from .models import ChapterEntry, ItemSettings, MangaEntry
+from . import __version__
+from .updater import cleanup_download, download_release, fetch_latest_release, is_newer_version
 from .scraper import (
     WeebCentralClient,
     chapter_exists_on_disk,
-    sanitize_filename,
     write_manga_metadata,
 )
 
@@ -30,12 +30,54 @@ def _format_eta(seconds: float | None) -> str:
     return f"{hours}h {minutes:02d}m"
 
 
+
+
+class AppUpdateWorker(QThread):
+    """Check GitHub for a newer release and download it without blocking the UI."""
+
+    status_changed = Signal(str)
+    progress_changed = Signal(int)
+    update_ready = Signal(object, str)
+    no_update = Signal(str)
+    failed = Signal(str)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._stop_requested = False
+
+    def stop(self) -> None:
+        self._stop_requested = True
+
+    def run(self) -> None:
+        try:
+            self.status_changed.emit("checking")
+            release = fetch_latest_release(__version__)
+            if self._stop_requested:
+                return
+            if not is_newer_version(release.version, __version__):
+                self.no_update.emit(release.version)
+                return
+
+            self.status_changed.emit("downloading")
+            package = download_release(
+                release,
+                progress=self.progress_changed.emit,
+                stop=lambda: self._stop_requested,
+            )
+            if self._stop_requested:
+                cleanup_download(package)
+                return
+            self.update_ready.emit(release, str(package))
+        except Exception:
+            if not self._stop_requested:
+                self.failed.emit("update_error_generic")
+
+
 class ResolveWorker(QThread):
-    log_message = Signal(str)
+    log_message = Signal(object)
     progress_message = Signal(str, int, int)
     resolved = Signal(object)
-    failed = Signal(str, str)
-    finished_signal = Signal()
+    failed = Signal(str, object)
 
     def __init__(self, urls: list[str], defaults: ItemSettings, language: str, parent=None) -> None:
         super().__init__(parent)
@@ -54,84 +96,71 @@ class ResolveWorker(QThread):
             if self._stop_requested:
                 break
             self.progress_message.emit(self.translator.tr("collector_current", url=url), index, total)
-            self.log_message.emit(self.translator.tr("log_add_url", url=url))
+            self.log_message.emit(tr_message("log_add_url", url=url))
             try:
                 manga = client.resolve(url, self.defaults)
                 self.resolved.emit(manga)
             except Exception as exc:
                 error = str(exc)
-                if error.startswith("error_"):
-                    error = self.translator.tr(error)
-                self.failed.emit(url, self.translator.tr("resolve_failed", error=error))
-        self.finished_signal.emit()
+                error_value = tr_message(error) if error.startswith("error_") else error
+                self.failed.emit(url, tr_message("resolve_failed", error=error_value))
 
 
 class UpdateCheckWorker(QThread):
-    log_message = Signal(str)
+    log_message = Signal(object)
     progress_message = Signal(str, int, int)
     updates_found = Signal(object)
-    finished_signal = Signal()
 
-    def __init__(self, output_dir: str, defaults: ItemSettings, language: str, known_mangas: list[MangaEntry] | None = None, parent=None) -> None:
+    def __init__(
+        self,
+        output_dir: str,
+        defaults: ItemSettings,
+        language: str,
+        known_mangas: list[MangaEntry] | None = None,
+        parent=None,
+        candidate_titles: set[str] | None = None,
+        include_disabled: bool = False,
+    ) -> None:
         super().__init__(parent)
         self.output_dir = output_dir
         self.defaults = defaults
         self.known_mangas = deepcopy(known_mangas or [])
+        self.candidate_titles = (
+            {str(title).strip().casefold() for title in candidate_titles if str(title).strip()}
+            if candidate_titles is not None
+            else None
+        )
+        self.include_disabled = bool(include_disabled)
         self.translator = Translator(language)
         self._stop_requested = False
 
     def stop(self) -> None:
         self._stop_requested = True
 
-    def _metadata_files(self) -> list[Path]:
-        base = Path(self.output_dir)
-        if not base.exists():
-            return []
-        result = []
-        for item in base.rglob(".mangodango.json"):
-            if item.is_file():
-                result.append(item)
-        return sorted(result)
-
     def _update_candidates(self) -> list[tuple[str, str]]:
-        base = Path(self.output_dir)
-        folder_names = {item.name for item in base.iterdir() if item.is_dir()} if base.exists() else set()
-        candidates: list[tuple[str, str]] = []
-        seen_urls: set[str] = set()
-
-        for path in self._metadata_files():
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                title = str(data.get("title", "") or path.parent.name)
-                url = str(data.get("url", "") or "").strip()
-            except Exception:
-                continue
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                candidates.append((title, url))
-
-        for manga in self.known_mangas:
-            if not manga.url or manga.url in seen_urls:
-                continue
-            # Use queue entries as fallback for old download folders without
-            # .mangodango.json. If a folder with the same sanitized name exists,
-            # this manga can be checked for updates.
-            sanitized = sanitize_filename(manga.title, manga.title)
-            if not folder_names or sanitized in folder_names or manga.title in folder_names:
-                seen_urls.add(manga.url)
-                candidates.append((manga.title, manga.url))
-
-        return candidates
+        return engine.collect_update_candidates(
+            self.output_dir,
+            self.known_mangas,
+            only_titles=self.candidate_titles,
+            include_disabled=self.include_disabled,
+        )
 
     def run(self) -> None:
-        candidates = self._update_candidates()
+        client = WeebCentralClient(tr=self.translator.tr, log=self.log_message.emit, stop=lambda: self._stop_requested)
+        candidates = engine.collect_update_candidates(
+            self.output_dir,
+            self.known_mangas,
+            client=client,
+            log=self.log_message.emit,
+            tr=lambda key, **kwargs: tr_message(key, **kwargs),
+            only_titles=self.candidate_titles,
+            include_disabled=self.include_disabled,
+        )
         if not candidates:
-            self.log_message.emit(self.translator.tr("updates_no_metadata"))
+            self.log_message.emit(tr_message("updates_no_metadata"))
             self.updates_found.emit([])
-            self.finished_signal.emit()
             return
 
-        client = WeebCentralClient(tr=self.translator.tr, log=self.log_message.emit, stop=lambda: self._stop_requested)
         result: list[MangaEntry] = []
         total = len(candidates)
 
@@ -140,30 +169,20 @@ class UpdateCheckWorker(QThread):
                 break
             self.progress_message.emit(self.translator.tr("updates_checking_manga", title=title), index, total)
             try:
-                manga = client.resolve(url, self.defaults)
-                new_chapters: list[ChapterEntry] = []
-                for chapter in manga.chapters:
-                    if not chapter_exists_on_disk(self.output_dir, manga.title, chapter.title):
-                        chapter.enabled = True
-                        chapter.status = "pending"
-                        new_chapters.append(chapter)
-                if new_chapters:
-                    manga.chapters = new_chapters
-                    manga.status = "ready"
-                    manga.enabled = True
+                manga = engine.find_new_chapters(client, self.output_dir, url, self.defaults, local_title=title)
+                if manga is not None:
                     result.append(manga)
-                    self.log_message.emit(self.translator.tr("updates_found_for_manga", title=manga.title, count=len(new_chapters)))
+                    self.log_message.emit(tr_message("updates_found_for_manga", title=manga.title, count=len(manga.chapters)))
                 else:
-                    self.log_message.emit(self.translator.tr("updates_none_for_manga", title=manga.title))
+                    self.log_message.emit(tr_message("updates_none_for_manga", title=title))
             except Exception as exc:
-                self.log_message.emit(self.translator.tr("updates_check_failed", title=title, error=exc))
+                self.log_message.emit(tr_message("updates_check_failed", title=title, error=exc))
 
         self.updates_found.emit(result)
-        self.finished_signal.emit()
 
 
 class QueueDownloadWorker(QThread):
-    log_message = Signal(str)
+    log_message = Signal(object)
     chapter_status = Signal(str, str, str)
     manga_status = Signal(str, str)
     chapter_progress = Signal(str, str, str, str)
@@ -266,7 +285,7 @@ class QueueDownloadWorker(QThread):
     def run(self) -> None:
         tasks = self._enabled_chapters()
         if not tasks:
-            self.log_message.emit(self.translator.tr("queue_empty"))
+            self.log_message.emit(tr_message("queue_empty"))
             self.finished_signal.emit(False, False)
             return
 
@@ -286,11 +305,11 @@ class QueueDownloadWorker(QThread):
                 current_manga_id = manga.item_id
                 self._manga_start_times[manga.item_id] = time.monotonic()
                 self.manga_status.emit(manga.item_id, "running")
-                self.log_message.emit(self.translator.tr("log_download_manga", title=manga.title))
+                self.log_message.emit(tr_message("log_download_manga", title=manga.title))
                 try:
                     write_manga_metadata(self.output_dir, manga.title, manga.url)
                 except Exception as exc:
-                    self.log_message.emit(self.translator.tr("metadata_write_failed", title=manga.title, error=exc))
+                    self.log_message.emit(tr_message("metadata_write_failed", title=manga.title, error=exc))
 
             if chapter_exists_on_disk(self.output_dir, manga.title, chapter.title):
                 chapter.status = "done"
@@ -305,7 +324,7 @@ class QueueDownloadWorker(QThread):
                     f"{int(self._manga_done_counts[manga.item_id])}/{total_manga}",
                     self._manga_eta_text.get(manga.item_id, ""),
                 )
-                self.log_message.emit(self.translator.tr("log_existing_chapter_skipped", manga=manga.title, chapter=chapter.title))
+                self.log_message.emit(tr_message("log_existing_chapter_skipped", manga=manga.title, chapter=chapter.title))
                 self._update_manga_status(manga)
                 continue
 
@@ -346,7 +365,7 @@ class QueueDownloadWorker(QThread):
                     chapter.status = "stopped"
                     chapter.eta_text = ""
                     self.chapter_status.emit(manga.item_id, chapter.item_id, "stopped")
-                    self.log_message.emit(self.translator.tr("download_stopped"))
+                    self.log_message.emit(tr_message("download_stopped"))
                     break
                 all_ok = False
                 chapter.status = "failed"

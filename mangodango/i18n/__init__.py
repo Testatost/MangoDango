@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
+from functools import lru_cache
+from string import Formatter
+from typing import Any
 
 from .languages import (
     bg,
@@ -82,6 +86,57 @@ LANGUAGE_ALIASES = {
 SUPPORTED_LANGUAGES = tuple(sorted(LANGUAGES.keys()))
 
 
+@dataclass(frozen=True)
+class TranslatableText:
+    """Translation key plus arguments that can be rendered again after a language change."""
+
+    key: str
+    kwargs: dict[str, Any] = field(default_factory=dict)
+
+
+def tr_message(key: str, **kwargs: Any) -> TranslatableText:
+    return TranslatableText(str(key), dict(kwargs))
+
+
+
+
+@lru_cache(maxsize=None)
+def _translation_matchers(language: str) -> tuple[dict[str, str], tuple[tuple[str, re.Pattern[str]], ...]]:
+    table = LANGUAGES.get(normalize_language(language), LANGUAGES["en"])
+    exact: dict[str, str] = {}
+    patterns: list[tuple[str, re.Pattern[str]]] = []
+    formatter = Formatter()
+    for key, template in table.items():
+        if not isinstance(template, str):
+            continue
+        parts = list(formatter.parse(template))
+        fields = [field for _literal, field, _spec, _conversion in parts if field]
+        if not fields:
+            exact.setdefault(template, key)
+            continue
+        regex_parts: list[str] = []
+        seen: set[str] = set()
+        valid = True
+        for literal, field, _spec, _conversion in parts:
+            regex_parts.append(re.escape(literal))
+            if not field:
+                continue
+            if not str(field).isidentifier():
+                valid = False
+                break
+            if field in seen:
+                regex_parts.append(f"(?P={field})")
+            else:
+                regex_parts.append(f"(?P<{field}>.*?)")
+                seen.add(field)
+        if valid:
+            try:
+                patterns.append((key, re.compile("^" + "".join(regex_parts) + "$", re.DOTALL)))
+            except re.error:
+                pass
+    return exact, tuple(patterns)
+
+
 def normalize_language(code: str | None) -> str:
     value = str(code or "").strip().lower()
     value = re.split(r"[-_]", value)[0]
@@ -101,13 +156,38 @@ class Translator:
     def set_language(self, language: str) -> None:
         self.language = normalize_language(language)
 
+    def render(self, value: Any) -> str:
+        if isinstance(value, TranslatableText):
+            return self.tr(value.key, **value.kwargs)
+        return str(value)
+
+    def identify(self, value: Any) -> TranslatableText | None:
+        """Recover a translation key from text rendered in the active language.
+
+        This lets the GUI keep a language-neutral log history even when older
+        call sites still pass ``tr(...)`` results instead of ``tr_message(...)``.
+        """
+        if isinstance(value, TranslatableText):
+            return value
+        text = str(value)
+        exact, patterns = _translation_matchers(self.language)
+        key = exact.get(text)
+        if key is not None:
+            return tr_message(key)
+        for candidate, pattern in patterns:
+            match = pattern.fullmatch(text)
+            if match is not None:
+                return tr_message(candidate, **match.groupdict())
+        return None
+
     def tr(self, key: str, **kwargs) -> str:
         table = LANGUAGES.get(self.language, LANGUAGES["en"])
         fallback = LANGUAGES["en"]
         text = table.get(key, fallback.get(key, key))
         if kwargs:
+            rendered = {name: self.render(value) for name, value in kwargs.items()}
             try:
-                return text.format(**kwargs)
+                return text.format(**rendered)
             except Exception:
                 return text
         return text

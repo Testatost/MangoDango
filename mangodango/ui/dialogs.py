@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import zipfile
 
-from PySide6.QtCore import Qt, QSize, QTimer, QEvent
-from PySide6.QtGui import QColor, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtCore import Qt, QSize, QTime, QTimer, QEvent, QUrl
+from PySide6.QtGui import QColor, QDesktopServices, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -14,27 +14,65 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QFrame,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
     QSplitter,
     QSpinBox,
+    QTabWidget,
+    QTimeEdit,
     QTreeWidget,
     QTreeWidgetItem,
     QDoubleSpinBox,
     QVBoxLayout,
+    QWidget,
 )
 
+from .. import __version__
+from ..automation import AutomationSchedule, AutomationSlot, DAY_CHOICES
 from ..constants import IMAGE_FORMATS, OUTPUT_MODES, READING_STYLES
 from ..models import ChapterEntry, ItemSettings, MangaEntry
 from .styles import PRESET_ORDER, THEME_PRESETS, ThemeSettings, preset_theme, _colors
 from ..scraper import IMAGE_EXTENSIONS, chapter_output_paths, natural_sort_key, sanitize_filename
+from ..updater import REPOSITORY_URL, ReleaseInfo, cleanup_download, schedule_update_install
+from ..workers import AppUpdateWorker
+
+
+def localized_question(parent, tr, title: str, text: str, default_yes: bool = False) -> bool:
+    """Show a Yes/No question whose button labels follow the app language."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(title)
+    box.setText(text)
+    yes_button = box.addButton(tr("yes"), QMessageBox.ButtonRole.AcceptRole)
+    no_button = box.addButton(tr("no"), QMessageBox.ButtonRole.RejectRole)
+    box.setDefaultButton(yes_button if default_yes else no_button)
+    box.exec()
+    return box.clickedButton() is yes_button
+
+
+def localized_text_input(parent, tr, title: str, label: str, text: str = "") -> tuple[str, bool]:
+    """Show a text input dialog with app-language OK/Cancel buttons."""
+    dialog = QInputDialog(parent)
+    dialog.setWindowTitle(title)
+    dialog.setLabelText(label)
+    dialog.setTextValue(text)
+    dialog.setOkButtonText(tr("ok"))
+    dialog.setCancelButtonText(tr("cancel"))
+    accepted = dialog.exec() == QDialog.DialogCode.Accepted
+    return dialog.textValue(), accepted
 
 
 class ItemSettingsDialog(QDialog):
@@ -107,6 +145,669 @@ class ItemSettingsDialog(QDialog):
 
     def should_apply_to_children(self) -> bool:
         return self.apply_children.isVisible() and self.apply_children.isChecked()
+
+
+class AppSettingsDialog(QDialog):
+    """Global defaults, update behaviour and the automation schedule.
+
+    Replaces the old inline "Globale Einstellungen" panel. Opened from the
+    "Einstellungen" button next to "Personalisieren".
+    """
+
+    def __init__(
+        self,
+        settings: ItemSettings,
+        check_updates_on_startup: bool,
+        auto_download_updates: bool,
+        automation: AutomationSchedule,
+        tr,
+        output_dir: str = "",
+        manga_list: list[dict] | None = None,
+        theme=None,
+        custom_themes: list[dict] | None = None,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self.tr = tr
+        self._automation = automation.clone()
+        self._output_dir = output_dir or ""
+        self._manga_list = list(manga_list or [])
+        self._requested_manga_action: tuple[str, list[dict]] | None = None
+        self._resize_pending = False
+        self._app_update_worker: AppUpdateWorker | None = None
+        self._downloaded_update_path = ""
+        self._quit_after_update_worker = False
+        self.setWindowTitle(self.tr("app_settings_title"))
+        self.setMinimumWidth(560)
+
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._build_general_tab(settings, check_updates_on_startup, auto_download_updates), self.tr("settings_tab_general"))
+        self.tabs.addTab(self._build_manga_list_tab(), self.tr("settings_tab_manga_list"))
+        self.appearance_prefs = None
+        if theme is not None:
+            self.tabs.addTab(self._build_appearance_tab(theme, custom_themes), self.tr("settings_tab_appearance"))
+        self.tabs.addTab(self._build_automation_tab(), self.tr("settings_tab_automation"))
+        self.tabs.addTab(self._build_help_tab(), self.tr("settings_tab_help"))
+
+        self.dialog_buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.dialog_buttons.button(QDialogButtonBox.Ok).setText(self.tr("ok"))
+        self.dialog_buttons.button(QDialogButtonBox.Cancel).setText(self.tr("cancel"))
+        self.dialog_buttons.accepted.connect(self.accept)
+        self.dialog_buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 10)
+        layout.setSpacing(10)
+        layout.addWidget(self.tabs)
+        layout.addWidget(self.dialog_buttons)
+
+        self._refresh_slots()
+        self._sync_automation_enabled()
+        self.tabs.currentChanged.connect(self._schedule_resize_for_current_tab)
+        for index in range(self.tabs.count()):
+            self.tabs.widget(index).installEventFilter(self)
+        QTimer.singleShot(0, self._resize_for_current_tab)
+
+    # -- Appearance tab ---------------------------------------------------
+    def _build_appearance_tab(self, theme, custom_themes) -> QWidget:
+        # Reuse the full PreferencesDialog UI as an embedded widget so the
+        # personalisation lives inside Settings instead of a separate button.
+        self.appearance_prefs = PreferencesDialog(theme, self.tr, custom_themes, parent=self)
+        self.appearance_prefs.setWindowFlags(Qt.WindowType.Widget)
+        self.appearance_prefs.installEventFilter(self)
+        # The embedded copy must not carry its own OK/Cancel/close row; the
+        # settings dialog's buttons drive accept/reject for everything.
+        for widget in (self.appearance_prefs.save_button, self.appearance_prefs.cancel_button):
+            widget.setVisible(False)
+
+        self.appearance_scroll = QScrollArea()
+        self.appearance_scroll.setWidgetResizable(True)
+        self.appearance_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.appearance_scroll.setWidget(self.appearance_prefs)
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(4, 4, 4, 4)
+        outer.addWidget(self.appearance_scroll)
+        self._appearance_tab = tab
+        return tab
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._schedule_resize_for_current_tab()
+
+    def eventFilter(self, watched, event) -> bool:
+        current_page = self.tabs.currentWidget()
+        appearance_content = getattr(self, "appearance_prefs", None)
+        if (
+            event.type() == QEvent.Type.LayoutRequest
+            and (watched is current_page or watched is appearance_content)
+        ):
+            self._schedule_resize_for_current_tab()
+        return super().eventFilter(watched, event)
+
+    def _schedule_resize_for_current_tab(self, _index: int | None = None) -> None:
+        if self._resize_pending:
+            return
+        self._resize_pending = True
+        QTimer.singleShot(0, self._resize_for_current_tab)
+
+    def _current_page_size_hint(self) -> QSize:
+        page = self.tabs.currentWidget()
+        if page is None:
+            return QSize(640, 420)
+
+        hint = page.sizeHint().expandedTo(page.minimumSizeHint())
+        if page is getattr(self, "_appearance_tab", None) and self.appearance_prefs is not None:
+            content_hint = self.appearance_prefs.sizeHint().expandedTo(self.appearance_prefs.minimumSizeHint())
+            hint = hint.expandedTo(QSize(content_hint.width() + 12, content_hint.height() + 12))
+
+        # The tree itself is intentionally scrollable, but the surrounding
+        # controls should never be clipped when switching to this tab.
+        if page is getattr(self, "_manga_list_tab", None):
+            hint = hint.expandedTo(QSize(660, 410))
+        if page is getattr(self, "_help_tab", None):
+            hint = hint.expandedTo(QSize(620, 360))
+        return hint
+
+    def _resize_for_current_tab(self) -> None:
+        self._resize_pending = False
+        page_hint = self._current_page_size_hint()
+        margins = self.layout().contentsMargins()
+        spacing = max(0, self.layout().spacing())
+        tab_bar_height = self.tabs.tabBar().sizeHint().height()
+        button_hint = self.dialog_buttons.sizeHint()
+
+        target_width = page_hint.width() + margins.left() + margins.right() + 14
+        target_height = (
+            page_hint.height()
+            + tab_bar_height
+            + button_hint.height()
+            + margins.top()
+            + margins.bottom()
+            + spacing
+            + 14
+        )
+
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is not None:
+            available = screen.availableGeometry()
+            target_width = min(target_width, max(560, int(available.width() * 0.94)))
+            target_height = min(target_height, max(420, int(available.height() * 0.94)))
+        else:
+            available = None
+
+        old_center = self.frameGeometry().center()
+        target_size = QSize(max(560, target_width), max(420, target_height))
+        if self.size() != target_size:
+            self.resize(target_size)
+
+        if self.isVisible() and available is not None:
+            geometry = self.frameGeometry()
+            geometry.moveCenter(old_center)
+            x = min(max(geometry.x(), available.left()), available.right() - geometry.width() + 1)
+            y = min(max(geometry.y(), available.top()), available.bottom() - geometry.height() + 1)
+            self.move(x, y)
+
+    def selected_theme(self):
+        return self.appearance_prefs.selected_theme() if self.appearance_prefs else None
+
+    def selected_template_name(self) -> str:
+        return self.appearance_prefs.selected_template_name() if self.appearance_prefs else ""
+
+    def selected_custom_themes(self) -> list[dict]:
+        return self.appearance_prefs.selected_custom_themes() if self.appearance_prefs else []
+
+    # -- General tab ------------------------------------------------------
+    def _build_general_tab(self, settings: ItemSettings, check_updates: bool, auto_download: bool) -> QWidget:
+        self.reading_combo = QComboBox()
+        self.output_combo = QComboBox()
+        self.format_combo = QComboBox()
+        self._fill_combo(self.reading_combo, READING_STYLES, "reading_")
+        self._fill_combo(self.output_combo, OUTPUT_MODES, "mode_")
+        self._fill_combo(self.format_combo, IMAGE_FORMATS, "format_")
+        self._set_combo(self.reading_combo, settings.reading_style)
+        self._set_combo(self.output_combo, settings.output_mode)
+        self._set_combo(self.format_combo, settings.image_format)
+
+        self.output_dir_edit = QLineEdit(self._output_dir)
+        self.output_dir_edit.setPlaceholderText(self.tr("output_dir_placeholder"))
+        browse = QPushButton(self.tr("choose_folder"))
+        browse.clicked.connect(self._choose_output_dir)
+        dir_row = QHBoxLayout()
+        dir_row.addWidget(self.output_dir_edit, 1)
+        dir_row.addWidget(browse)
+
+        self.keep_images = QCheckBox(self.tr("keep_images"))
+        self.keep_images.setChecked(settings.keep_images)
+        self.check_updates_on_startup = QCheckBox(self.tr("check_updates_on_startup"))
+        self.check_updates_on_startup.setToolTip(self.tr("check_updates_on_startup_hint"))
+        self.check_updates_on_startup.setChecked(check_updates)
+        self.auto_download_updates = QCheckBox(self.tr("auto_download_updates"))
+        self.auto_download_updates.setToolTip(self.tr("auto_download_updates_hint"))
+        self.auto_download_updates.setChecked(auto_download)
+
+        self.threads = QSpinBox()
+        self.threads.setRange(1, 10)
+        self.threads.setValue(settings.image_threads)
+        self.delay = QDoubleSpinBox()
+        self.delay.setRange(0, 30)
+        self.delay.setDecimals(1)
+        self.delay.setSingleStep(0.5)
+        self.delay.setSuffix(self.tr("seconds_suffix"))
+        self.delay.setValue(settings.request_delay)
+
+        form = QFormLayout()
+        form.setSpacing(8)
+        form.addRow(self.tr("manga_directory"), dir_row)
+        form.addRow(self.tr("reading_style"), self.reading_combo)
+        form.addRow(self.tr("output_mode"), self.output_combo)
+        form.addRow(self.tr("image_format"), self.format_combo)
+        form.addRow("", self.keep_images)
+        form.addRow("", self.check_updates_on_startup)
+        form.addRow("", self.auto_download_updates)
+        form.addRow(self.tr("image_threads"), self.threads)
+        form.addRow(self.tr("request_delay"), self.delay)
+
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.addLayout(form)
+        outer.addStretch(1)
+        return tab
+
+    def _choose_output_dir(self) -> None:
+        start = self.output_dir_edit.text().strip() or str(Path.home())
+        folder = QFileDialog.getExistingDirectory(self, self.tr("choose_folder"), start)
+        if folder:
+            self.output_dir_edit.setText(folder)
+
+    # -- Manga list tab ---------------------------------------------------
+    def _build_manga_list_tab(self) -> QWidget:
+        hint = QLabel(self.tr("manga_list_hint"))
+        hint.setWordWrap(True)
+        hint.setObjectName("Muted")
+
+        self.manga_tree = QTreeWidget()
+        self.manga_tree.setColumnCount(3)
+        self.manga_tree.setHeaderLabels([
+            self.tr("manga_list_col_name"),
+            self.tr("manga_list_col_check"),
+            self.tr("manga_list_col_download"),
+        ])
+        self.manga_tree.setRootIsDecorated(False)
+        self.manga_tree.setAlternatingRowColors(True)
+        header = self.manga_tree.header()
+        header.setStretchLastSection(False)
+        header.setSectionsClickable(True)
+        header.sectionClicked.connect(self._toggle_manga_column_from_header)
+        self.manga_tree.headerItem().setToolTip(1, self.tr("manga_list_header_toggle_hint"))
+        self.manga_tree.headerItem().setToolTip(2, self.tr("manga_list_header_toggle_hint"))
+        try:
+            from PySide6.QtWidgets import QHeaderView
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        except Exception:
+            pass
+
+        for info in self._manga_list:
+            item = QTreeWidgetItem([str(info.get("title", "")), "", ""])
+            item.setData(0, Qt.ItemDataRole.UserRole, str(info.get("path", "")))
+            item.setData(0, int(Qt.ItemDataRole.UserRole) + 1, str(info.get("url", "")))
+            item.setTextAlignment(1, Qt.AlignmentFlag.AlignCenter)
+            item.setTextAlignment(2, Qt.AlignmentFlag.AlignCenter)
+            item.setCheckState(1, Qt.CheckState.Checked if info.get("check_updates", True) else Qt.CheckState.Unchecked)
+            item.setCheckState(2, Qt.CheckState.Checked if info.get("auto_download", True) else Qt.CheckState.Unchecked)
+            self.manga_tree.addTopLevelItem(item)
+
+        check_now = QPushButton(self.tr("manga_list_check_now"))
+        download_now = QPushButton(self.tr("manga_list_download_now"))
+        check_now.clicked.connect(lambda: self._request_manga_action("check", 1))
+        download_now.clicked.connect(lambda: self._request_manga_action("download", 2))
+
+        buttons_row = QHBoxLayout()
+        buttons_row.addStretch(1)
+        buttons_row.addWidget(check_now)
+        buttons_row.addWidget(download_now)
+
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(8)
+        outer.addWidget(hint)
+        outer.addWidget(self.manga_tree, 1)
+        outer.addLayout(buttons_row)
+        if not self._manga_list:
+            empty = QLabel(self.tr("manga_list_empty"))
+            empty.setObjectName("Muted")
+            outer.addWidget(empty)
+        self._manga_list_tab = tab
+        return tab
+
+    def _set_all_checks(self, column: int, checked: bool) -> None:
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        for index in range(self.manga_tree.topLevelItemCount()):
+            self.manga_tree.topLevelItem(index).setCheckState(column, state)
+
+    def _toggle_manga_column_from_header(self, column: int) -> None:
+        if column not in (1, 2) or self.manga_tree.topLevelItemCount() <= 0:
+            return
+        all_checked = all(
+            self.manga_tree.topLevelItem(index).checkState(column) == Qt.CheckState.Checked
+            for index in range(self.manga_tree.topLevelItemCount())
+        )
+        self._set_all_checks(column, not all_checked)
+
+    def _mangas_checked_in_column(self, column: int) -> list[dict]:
+        result: list[dict] = []
+        for index in range(self.manga_tree.topLevelItemCount()):
+            item = self.manga_tree.topLevelItem(index)
+            if item.checkState(column) != Qt.CheckState.Checked:
+                continue
+            result.append({
+                "title": item.text(0),
+                "path": str(item.data(0, Qt.ItemDataRole.UserRole) or ""),
+                "url": str(item.data(0, int(Qt.ItemDataRole.UserRole) + 1) or ""),
+            })
+        return result
+
+    def _request_manga_action(self, action: str, column: int) -> None:
+        selected = self._mangas_checked_in_column(column)
+        if not selected:
+            QMessageBox.information(
+                self,
+                self.tr("settings_tab_manga_list"),
+                self.tr("manga_list_action_no_selection"),
+            )
+            return
+        self._requested_manga_action = (action, selected)
+        self.accept()
+
+    # -- Automation tab ---------------------------------------------------
+    def _build_automation_tab(self) -> QWidget:
+        self.automation_enabled = QCheckBox(self.tr("automation_enable"))
+        self.automation_enabled.setChecked(self._automation.enabled)
+        self.automation_enabled.stateChanged.connect(self._sync_automation_enabled)
+
+        hint = QLabel(self.tr("automation_hint"))
+        hint.setWordWrap(True)
+        hint.setObjectName("Muted")
+
+        self.automation_group = QGroupBox(self.tr("automation_schedule"))
+        group_layout = QVBoxLayout(self.automation_group)
+        group_layout.setSpacing(8)
+
+        add_row = QHBoxLayout()
+        self.day_combo = QComboBox()
+        for code in DAY_CHOICES:
+            self.day_combo.addItem(self.tr("weekday_" + code), code)
+        self.time_edit = QTimeEdit()
+        self.time_edit.setDisplayFormat("HH:mm")
+        self.time_edit.setTime(QTime(8, 0))
+        self.add_slot_button = QPushButton(self.tr("automation_add"))
+        self.add_slot_button.clicked.connect(self._add_slot)
+        add_row.addWidget(QLabel(self.tr("automation_day")))
+        add_row.addWidget(self.day_combo, 1)
+        add_row.addWidget(QLabel(self.tr("automation_time")))
+        add_row.addWidget(self.time_edit)
+        add_row.addWidget(self.add_slot_button)
+
+        self.slots_list = QListWidget()
+        self.slots_list.setMinimumHeight(150)
+
+        self.remove_slot_button = QPushButton(self.tr("automation_remove"))
+        self.remove_slot_button.clicked.connect(self._remove_slot)
+        remove_row = QHBoxLayout()
+        remove_row.addStretch(1)
+        remove_row.addWidget(self.remove_slot_button)
+
+        group_layout.addLayout(add_row)
+        group_layout.addWidget(self.slots_list, 1)
+        group_layout.addLayout(remove_row)
+
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(10)
+        outer.addWidget(self.automation_enabled)
+        outer.addWidget(hint)
+        outer.addWidget(self.automation_group, 1)
+        return tab
+
+    def _sync_automation_enabled(self) -> None:
+        self.automation_group.setEnabled(self.automation_enabled.isChecked())
+
+    def _slot_label(self, slot: AutomationSlot) -> str:
+        return self.tr("automation_slot_label", day=self.tr("weekday_" + slot.day), time=slot.time)
+
+    def _refresh_slots(self) -> None:
+        self.slots_list.clear()
+        for slot in self._automation.slots:
+            item = QListWidgetItem(self._slot_label(slot))
+            item.setData(Qt.ItemDataRole.UserRole, (slot.day, slot.time))
+            self.slots_list.addItem(item)
+
+    def _add_slot(self) -> None:
+        day = str(self.day_combo.currentData() or "daily")
+        time_text = self.time_edit.time().toString("HH:mm")
+        if self._automation.add_slot(AutomationSlot(day=day, time=time_text)):
+            self._refresh_slots()
+
+    def _remove_slot(self) -> None:
+        item = self.slots_list.currentItem()
+        if item is None:
+            return
+        day, time_text = item.data(Qt.ItemDataRole.UserRole)
+        self._automation.slots = [s for s in self._automation.slots if not (s.day == day and s.time == time_text)]
+        self._refresh_slots()
+
+    # -- Help / self-update tab -------------------------------------------
+    def _build_help_tab(self) -> QWidget:
+        card = QFrame()
+        card.setObjectName("Panel")
+        card_layout = QGridLayout(card)
+        card_layout.setContentsMargins(16, 14, 16, 14)
+        card_layout.setHorizontalSpacing(14)
+        card_layout.setVerticalSpacing(9)
+
+        title = QLabel("MangoDango")
+        title_font = title.font()
+        title_font.setBold(True)
+        title_font.setPointSize(max(title_font.pointSize() + 4, 14))
+        title.setFont(title_font)
+        card_layout.addWidget(title, 0, 0, 1, 2)
+
+        rows = (
+            ("help_created_by", "Testatost"),
+            ("help_license", "MIT"),
+            ("help_current_version", __version__),
+        )
+        for row, (label_key, value) in enumerate(rows, start=1):
+            label = QLabel(self.tr(label_key))
+            label.setObjectName("Muted")
+            value_label = QLabel(value)
+            value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            card_layout.addWidget(label, row, 0)
+            card_layout.addWidget(value_label, row, 1)
+
+        repo_label = QLabel(self.tr("help_repository"))
+        repo_label.setObjectName("Muted")
+        self.repo_link = QLabel(f'<a href="{REPOSITORY_URL}">{REPOSITORY_URL}</a>')
+        self.repo_link.setTextFormat(Qt.TextFormat.RichText)
+        self.repo_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.repo_link.setOpenExternalLinks(False)
+        self.repo_link.linkActivated.connect(self._open_help_link)
+        card_layout.addWidget(repo_label, 4, 0)
+        card_layout.addWidget(self.repo_link, 4, 1)
+        card_layout.setColumnStretch(1, 1)
+
+        self.app_update_status = QLabel(self.tr("help_update_hint"))
+        self.app_update_status.setObjectName("Muted")
+        self.app_update_status.setWordWrap(True)
+
+        self.app_update_progress = QProgressBar()
+        self.app_update_progress.setRange(0, 100)
+        self.app_update_progress.setValue(0)
+        self.app_update_progress.setTextVisible(True)
+        self.app_update_progress.setVisible(False)
+
+        self.app_update_button = QPushButton(self.tr("help_update_button"))
+        self.app_update_button.clicked.connect(self._start_app_update)
+
+        update_row = QHBoxLayout()
+        update_row.addStretch(1)
+        update_row.addWidget(self.app_update_button)
+
+        tab = QWidget()
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(10)
+        outer.addWidget(card)
+        outer.addWidget(self.app_update_status)
+        outer.addWidget(self.app_update_progress)
+        outer.addLayout(update_row)
+        outer.addStretch(1)
+        self._help_tab = tab
+        return tab
+
+    def _open_help_link(self, url: str) -> None:
+        parent = self.parent()
+        opener = getattr(parent, "open_external_url", None)
+        if callable(opener):
+            opener(url)
+            return
+        QDesktopServices.openUrl(QUrl.fromUserInput(url))
+
+    def _start_app_update(self) -> None:
+        if self._app_update_worker is not None and self._app_update_worker.isRunning():
+            return
+        self.app_update_button.setEnabled(False)
+        self.dialog_buttons.setEnabled(False)
+        self.app_update_progress.setValue(0)
+        self.app_update_progress.setVisible(False)
+        self.app_update_status.setText(self.tr("help_update_checking"))
+
+        owner = self.parent() or self
+        worker = AppUpdateWorker(owner)
+        self._app_update_worker = worker
+        worker.status_changed.connect(self._on_app_update_status)
+        worker.progress_changed.connect(self._on_app_update_progress)
+        worker.no_update.connect(self._on_app_update_no_update)
+        worker.failed.connect(self._on_app_update_failed)
+        worker.update_ready.connect(self._on_app_update_ready)
+        worker.finished.connect(self._on_app_update_worker_finished)
+        worker.start()
+
+    def _on_app_update_status(self, status: str) -> None:
+        if status == "downloading":
+            self.app_update_progress.setVisible(True)
+            self.app_update_status.setText(self.tr("help_update_downloading"))
+        else:
+            self.app_update_status.setText(self.tr("help_update_checking"))
+
+    def _on_app_update_progress(self, value: int) -> None:
+        self.app_update_progress.setVisible(True)
+        self.app_update_progress.setValue(max(0, min(100, int(value))))
+
+    def _on_app_update_no_update(self, version: str) -> None:
+        self.app_update_progress.setVisible(False)
+        self.app_update_status.setText(self.tr("help_update_latest", version=version or __version__))
+
+    def _on_app_update_failed(self, error: str) -> None:
+        self.app_update_progress.setVisible(False)
+        reason = self.tr(error) if str(error).startswith("update_error_") else self.tr("update_error_generic")
+        self.app_update_status.setText(self.tr("help_update_failed", error=reason))
+        QMessageBox.warning(
+            self,
+            self.tr("help_update_title"),
+            self.tr("help_update_failed", error=reason),
+        )
+
+    def _on_app_update_ready(self, release: ReleaseInfo, package_path: str) -> None:
+        self._downloaded_update_path = package_path
+        self.app_update_progress.setVisible(True)
+        self.app_update_progress.setValue(100)
+        self.app_update_status.setText(self.tr("help_update_ready", version=release.version))
+
+        if not localized_question(
+            self,
+            self.tr,
+            self.tr("help_update_title"),
+            self.tr("help_update_restart_question", version=release.version),
+            default_yes=True,
+        ):
+            cleanup_download(package_path)
+            self._downloaded_update_path = ""
+            return
+
+        try:
+            schedule_update_install(release, package_path)
+        except Exception:
+            cleanup_download(package_path)
+            self._downloaded_update_path = ""
+            reason = self.tr("update_error_generic")
+            self.app_update_status.setText(self.tr("help_update_install_failed", error=reason))
+            QMessageBox.warning(
+                self,
+                self.tr("help_update_title"),
+                self.tr("help_update_install_failed", error=reason),
+            )
+            return
+
+        cleanup_download(package_path)
+        self._downloaded_update_path = ""
+        self.app_update_status.setText(self.tr("help_update_restarting", version=release.version))
+
+        # update_ready is emitted from inside AppUpdateWorker.run(). At this
+        # point the native QThread may still be running for a few more event-loop
+        # turns. Quitting the application immediately can therefore destroy the
+        # worker before QThread.finished is emitted and abort the process.
+        self._quit_after_update_worker = True
+        self.accept()
+        worker = self._app_update_worker
+        if worker is None or not worker.isRunning():
+            app = QApplication.instance()
+            if app is not None:
+                QTimer.singleShot(0, app.quit)
+
+    def _on_app_update_worker_finished(self) -> None:
+        worker = self.sender()
+        if worker is self._app_update_worker:
+            self._app_update_worker = None
+        self.app_update_button.setEnabled(True)
+        self.dialog_buttons.setEnabled(True)
+        if worker is not None:
+            worker.deleteLater()
+
+        if self._quit_after_update_worker:
+            self._quit_after_update_worker = False
+            app = QApplication.instance()
+            if app is not None:
+                QTimer.singleShot(0, app.quit)
+
+    def reject(self) -> None:
+        if self._app_update_worker is not None and self._app_update_worker.isRunning():
+            self._app_update_worker.stop()
+        if self._downloaded_update_path:
+            cleanup_download(self._downloaded_update_path)
+            self._downloaded_update_path = ""
+        super().reject()
+
+    # -- Combo helpers ----------------------------------------------------
+    def _fill_combo(self, combo: QComboBox, values: tuple[str, ...], prefix: str) -> None:
+        combo.clear()
+        for value in values:
+            combo.addItem(self.tr(prefix + value), value)
+        combo.setMaxVisibleItems(len(values))
+        combo.view().setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        combo.view().setMinimumHeight((len(values) * 28) + 8)
+
+    def _set_combo(self, combo: QComboBox, value: str) -> None:
+        idx = combo.findData(value)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+
+    # -- Getters ----------------------------------------------------------
+    def selected_settings(self) -> ItemSettings:
+        return ItemSettings(
+            reading_style=str(self.reading_combo.currentData()),
+            output_mode=str(self.output_combo.currentData()),
+            image_format=str(self.format_combo.currentData()),
+            keep_images=self.keep_images.isChecked(),
+            image_threads=self.threads.value(),
+            request_delay=self.delay.value(),
+        )
+
+    def check_updates_on_startup_enabled(self) -> bool:
+        return self.check_updates_on_startup.isChecked()
+
+    def auto_download_updates_enabled(self) -> bool:
+        return self.auto_download_updates.isChecked()
+
+    def automation_schedule(self) -> AutomationSchedule:
+        schedule = self._automation.clone()
+        schedule.enabled = self.automation_enabled.isChecked()
+        return schedule
+
+    def selected_output_dir(self) -> str:
+        return self.output_dir_edit.text().strip()
+
+    def manga_flags(self) -> list[dict]:
+        result: list[dict] = []
+        for index in range(self.manga_tree.topLevelItemCount()):
+            item = self.manga_tree.topLevelItem(index)
+            result.append({
+                "path": str(item.data(0, Qt.ItemDataRole.UserRole) or ""),
+                "check_updates": item.checkState(1) == Qt.CheckState.Checked,
+                "auto_download": item.checkState(2) == Qt.CheckState.Checked,
+            })
+        return result
+
+    def requested_manga_action(self) -> tuple[str, list[dict]] | None:
+        if self._requested_manga_action is None:
+            return None
+        action, mangas = self._requested_manga_action
+        return action, [dict(item) for item in mangas]
 
 
 class ThemePreview(QFrame):
@@ -319,7 +1020,7 @@ class PreferencesDialog(QDialog):
         return "#000000" if brightness > 160 else "#ffffff"
 
     def save_current_template(self) -> None:
-        name, ok = QInputDialog.getText(self, self.tr("save_template"), self.tr("template_name"))
+        name, ok = localized_text_input(self, self.tr, self.tr("save_template"), self.tr("template_name"))
         name = name.strip()
         if not ok or not name:
             return

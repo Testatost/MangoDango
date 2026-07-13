@@ -19,7 +19,6 @@ ENV/
 .virtualenv/
 
 # Installer / packaging
-*.spec
 *.manifest
 
 # Test / coverage output
@@ -75,16 +74,22 @@ temp/
 *.desktop
 *.lnk
 
-# Generated Python package cache
+# Generated Python package cache / native binaries
 *.pyd
 *.so
 *.dylib
 
-# Keep project assets
+# Keep project assets, documentation and build specifications
 !icon.ico
 !icon.png
 !logo.png
 !logo-small.png
+!splash.png
 !README.md
+!SERVER.md
 !THIRD_PARTY_NOTICES.md
 !requirements.txt
+!version_info.txt
+!main.spec
+!main_windows11.spec
+!main_linux.spec

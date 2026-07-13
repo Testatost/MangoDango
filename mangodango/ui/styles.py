@@ -502,6 +502,45 @@ def build_stylesheet(settings: ThemeSettings) -> str:
         QToolButton#LibraryCard:pressed {{
             background: {c['button']};
         }}
+        QFrame#LibraryCard {{
+            background: {c['panel2']};
+            border: 1px solid {c['soft_border']};
+            border-radius: 12px;
+            padding: 10px;
+        }}
+        QFrame#LibraryCard:hover {{
+            border: 1px solid {c['accent']};
+            background: {c['input']};
+        }}
+        QLabel#LibraryTitle {{
+            color: {c['text']};
+            font-weight: 700;
+            background: transparent;
+        }}
+        QLabel#LibraryInfo {{
+            color: {c['muted']};
+            background: transparent;
+        }}
+        QLabel#LibraryCover {{
+            background: transparent;
+        }}
+        QLabel#LibraryStar {{
+            background: transparent;
+        }}
+        QToolButton#LibraryMenuButton {{
+            background: {c['panel']};
+            border: 1px solid {c['soft_border']};
+            border-radius: 13px;
+            padding: 0px;
+            color: {c['text']};
+            font-size: 18px;
+            font-weight: 700;
+        }}
+        QToolButton#LibraryMenuButton:hover {{
+            background: {c['accent']};
+            border: 1px solid {c['accent']};
+            color: #ffffff;
+        }}
         QWidget#LibraryPage {{
             background: transparent;
         }}
