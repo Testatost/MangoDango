@@ -1,25 +1,23 @@
-# -*- coding: utf-8 -*-
 TEXT = {'accent': 'Color de acento',
  'add_to_queue': 'Añadir a la cola',
  'all_files_filter': 'Todos los archivos (*)',
  'app_settings_button': 'Configuración',
  'app_settings_title': 'Configuración',
  'app_title': 'MangoDango',
- 'appearance_hint': 'Elige un tema sugerido o define tus propios colores. Los colores personalizados pueden '
-                    'guardarse como tema y seleccionarse de nuevo más tarde.',
+ 'appearance_hint': 'Elige un tema sugerido o define tus propios colores. Los colores personalizados pueden guardarse '
+                    'como tema y seleccionarse de nuevo más tarde.',
  'apply': 'Aplicar',
  'apply_to_children': 'Aplicar a todos los capítulos siguientes',
  'auto_download_updates': 'Descargar los nuevos capítulos automáticamente',
- 'auto_download_updates_hint': 'Descargar automáticamente los capítulos recién encontrados tras añadirlos a '
-                               'la cola.',
+ 'auto_download_updates_hint': 'Descargar automáticamente los capítulos recién encontrados tras añadirlos a la cola.',
  'automation_add': 'Añadir',
  'automation_day': 'Día',
  'automation_disabled_log': 'Automatización desactivada.',
  'automation_enable': 'Activar automatización',
  'automation_enabled_log': 'Automatización activada: {count} horario(s).',
- 'automation_hint': 'Cuando está activada, MangoDango comprueba la carpeta de destino en busca de nuevos '
-                    'capítulos en los días y horas que añadas abajo. Si la descarga automática está '
-                    'activada, los nuevos capítulos se descargan de inmediato.',
+ 'automation_hint': 'Cuando está activada, MangoDango comprueba la carpeta de destino en busca de nuevos capítulos en '
+                    'los días y horas que añadas abajo. Si la descarga automática está activada, los nuevos capítulos '
+                    'se descargan de inmediato.',
  'automation_remove': 'Quitar',
  'automation_schedule': 'Programación',
  'automation_slot_label': '{day} a las {time}',
@@ -28,8 +26,8 @@ TEXT = {'accent': 'Color de acento',
  'cancel': 'Cancelar',
  'chapter_fallback': 'Capítulo {number}',
  'check_updates_on_startup': 'Buscar capítulos nuevos al iniciar',
- 'check_updates_on_startup_hint': 'Al iniciar, leer los metadatos de MangoDango en la carpeta de destino y '
-                                  'buscar capítulos nuevos en WeebCentral.',
+ 'check_updates_on_startup_hint': 'Al iniciar, leer los metadatos de MangoDango en la carpeta de destino y buscar '
+                                  'capítulos nuevos en WeebCentral.',
  'choose_color': 'Elegir color',
  'choose_dir': 'Elegir carpeta',
  'choose_folder': 'Elegir carpeta…',
@@ -37,8 +35,7 @@ TEXT = {'accent': 'Color de acento',
  'close': 'Cerrar',
  'collector_canceling': 'Cancelando la recopilación de enlaces…',
  'collector_current': 'Recopilando: {url}',
- 'collector_message': 'MangoDango está recopilando las URL de los capítulos. Esto puede tardar en mangas '
-                      'grandes.',
+ 'collector_message': 'MangoDango está recopilando las URL de los capítulos. Esto puede tardar en mangas grandes.',
  'collector_title': 'Recopilando enlaces',
  'color_accent': 'Acento',
  'color_background': 'Fondo',
@@ -104,13 +101,13 @@ TEXT = {'accent': 'Color de acento',
  'help_update_checking': 'Buscando la última versión en GitHub…',
  'help_update_downloading': 'Se encontró una versión más reciente. Descargando la actualización…',
  'help_update_failed': 'Error al comprobar la actualización: {error}',
- 'help_update_hint': 'Comprueba el repositorio oficial de GitHub en busca de una versión más reciente y '
-                     'puede instalarla automáticamente.',
+ 'help_update_hint': 'Comprueba el repositorio oficial de GitHub en busca de una versión más reciente y puede '
+                     'instalarla automáticamente.',
  'help_update_install_failed': 'No se pudo preparar la actualización: {error}',
  'help_update_latest': 'MangoDango está actualizado. Última versión publicada: {version}.',
  'help_update_ready': 'La versión {version} se ha descargado y está lista para instalarse.',
- 'help_update_restart_question': 'La versión {version} se ha descargado. ¿Cerrar MangoDango, instalar la '
-                                 'actualización y reiniciar ahora?',
+ 'help_update_restart_question': 'La versión {version} se ha descargado. ¿Cerrar MangoDango, instalar la actualización '
+                                 'y reiniciar ahora?',
  'help_update_restarting': 'Instalando la versión {version}. MangoDango se reiniciará…',
  'help_update_title': 'Actualización de MangoDango',
  'home_weebcentral': 'WeebCentral',
@@ -160,8 +157,8 @@ TEXT = {'accent': 'Color de acento',
  'log_download_resumed': 'Descarga reanudada: {count} capítulos restantes, destino: {path}',
  'log_download_started': 'Descarga iniciada: {count} capítulos, destino: {path}',
  'log_download_stop_requested': 'Parada solicitada; las descargas de imágenes activas finalizarán primero.',
- 'log_download_stopped_after_active': 'Descarga detenida; las descargas de imágenes activas se completaron '
-                                      'de forma segura.',
+ 'log_download_stopped_after_active': 'Descarga detenida; las descargas de imágenes activas se completaron de forma '
+                                      'segura.',
  'log_duplicate': 'Ya existe: {url}',
  'log_existing_chapter_skipped': 'Ya está en el disco, omitido: {manga} — {chapter}',
  'log_existing_chapters_detected': 'Ya en el disco para {title}: {count} capítulo(s).',
@@ -171,21 +168,18 @@ TEXT = {'accent': 'Color de acento',
  'log_images_found': '{count} imágenes encontradas.',
  'log_images_removed': 'Carpeta de imágenes eliminada: {title} — {path}',
  'log_language_set': 'Idioma configurado: {language}',
- 'log_large_queue_disk_scan_skipped': 'Cola grande cargada ({rows} filas). Se omitió el análisis inmediato '
-                                      'del disco para que la cola se cargue rápido; se comprobará de nuevo '
-                                      'antes de descargar.',
+ 'log_large_queue_disk_scan_skipped': 'Cola grande cargada ({rows} filas). Se omitió el análisis inmediato del disco '
+                                      'para que la cola se cargue rápido; se comprobará de nuevo antes de descargar.',
  'log_merged_manga': 'Manga actualizado: {title} ({count} capítulos nuevos)',
- 'log_no_active_chapters': 'Descarga no iniciada: no hay capítulos activados en la cola que no estén ya '
-                           'presentes.',
+ 'log_no_active_chapters': 'Descarga no iniciada: no hay capítulos activados en la cola que no estén ya presentes.',
  'log_no_images': 'No se han encontrado imágenes: {title}',
  'log_output_dir_changed': 'Carpeta de destino cambiada: {path}',
  'log_output_hidden': 'Panel de registro oculto.',
  'log_output_shown': 'Panel de registro mostrado.',
  'log_pdf_saved': 'PDF guardado: {path}',
  'log_queue_cleared': 'Cola vaciada: {count} elemento(s) eliminados.',
- 'log_queue_large_optimized': 'Cola grande detectada ({rows} filas). Se desactivaron los menús desplegables '
-                              'en línea para mejorar el rendimiento; los ajustes aún pueden cambiarse con '
-                              'clic derecho/Ajustes.',
+ 'log_queue_large_optimized': 'Cola grande detectada ({rows} filas). Se desactivaron los menús desplegables en línea '
+                              'para mejorar el rendimiento; los ajustes aún pueden cambiarse con clic derecho/Ajustes.',
  'log_queue_load_failed': 'No se pudo cargar la cola: {path} ({error})',
  'log_queue_load_skipped': 'Se omitieron {count} entradas de cola no válidas.',
  'log_queue_load_started': 'Cargando cola: {path}',
@@ -199,8 +193,8 @@ TEXT = {'accent': 'Color de acento',
  'log_style_fallback': "Se recurre al estilo de lectura '{style}'.",
  'log_style_low_count': 'Solo {count} URL de imagen utilizables con {style}; probando alternativa.',
  'log_theme_applied': 'Apariencia aplicada: {theme}',
- 'log_try_chapter_page': 'No se encontraron imágenes utilizables en /images; probando directamente la página '
-                         'del capítulo.',
+ 'log_try_chapter_page': 'No se encontraron imágenes utilizables en /images; probando directamente la página del '
+                         'capítulo.',
  'manga_directory': 'Directorio de mangas',
  'manga_list_action_no_selection': 'No hay ningún manga activado para esta acción.',
  'manga_list_check_all': 'Marcar todos',
@@ -214,8 +208,8 @@ TEXT = {'accent': 'Color de acento',
  'manga_list_download_now': 'Descargar ahora',
  'manga_list_empty': 'Aún no se han encontrado mangas en la carpeta de destino.',
  'manga_list_header_toggle_hint': 'Haz clic para activar o desactivar todos los mangas de esta columna.',
- 'manga_list_hint': 'Elige qué mangas se comprueban para actualizaciones y se descargan automáticamente. '
-                    'Solo los mangas marcados se procesan por las funciones automáticas.',
+ 'manga_list_hint': 'Elige qué mangas se comprueban para actualizaciones y se descargan automáticamente. Solo los '
+                    'mangas marcados se procesan por las funciones automáticas.',
  'menu_auto_add': 'Añadir a actualización automática',
  'menu_auto_added': "'{title}' añadido a la actualización automática.",
  'menu_auto_remove': 'Quitar de actualización automática',
@@ -223,12 +217,44 @@ TEXT = {'accent': 'Color de acento',
  'menu_change_cover': 'Cambiar portada',
  'menu_delete': 'Eliminar',
  'menu_favorite': 'Marcar como favorito',
- 'menu_mark_read': 'Marcar como leído',
- 'menu_mark_unread': 'Marcar como no leído',
  'menu_open_source': 'Abrir página de origen',
  'menu_rename': 'Cambiar nombre',
  'menu_unfavorite': 'Quitar de favoritos',
  'metadata_write_failed': 'No se pudieron escribir los metadatos de {title}: {error}',
+ 'mobile_error_conflict': 'El cambio entra en conflicto con un archivo o manga existente.',
+ 'mobile_error_internal': 'No se pudo completar la solicitud.',
+ 'mobile_error_invalid_request': 'La solicitud no es válida.',
+ 'mobile_error_local_only': 'El acceso solo está permitido desde la red local/privada.',
+ 'mobile_error_not_found': 'No se encontró el elemento solicitado.',
+ 'mobile_error_write_rejected': 'La solicitud de escritura fue rechazada.',
+ 'mobile_reader_action_failed': 'La acción falló: {error}',
+ 'mobile_reader_addresses': 'Abre una de estas direcciones en el teléfono:',
+ 'mobile_reader_description': 'Lee tu biblioteca de MangoDango en un teléfono o tableta de la misma red Wi-Fi/LAN. La '
+                              'interfaz móvil incluye biblioteca, lista de capítulos, lector y menú de gestión de '
+                              'manga, pero no descargador.',
+ 'mobile_reader_enable': 'Activar el lector móvil en la red local',
+ 'mobile_reader_enable_hint': 'Inicia una biblioteca web con lector de manga para teléfonos y tabletas de la misma red '
+                              'local.',
+ 'mobile_reader_host': 'Dirección IP de enlace',
+ 'mobile_reader_host_hint': 'Usa 0.0.0.0 para escuchar en todas las interfaces IPv4 locales o introduce una dirección '
+                            'IPv4 local concreta de este equipo.',
+ 'mobile_reader_hostname_hint': 'Si la red lo permite, MangoDango también estará disponible en '
+                                'http://mangodango.local. Una dirección pública como mangodango.de requiere '
+                                'configuración DNS y la aplicación no puede crearla por sí sola.',
+ 'mobile_reader_invalid_host': 'Dirección IP no válida para el lector móvil: {host}',
+ 'mobile_reader_ipv4_only': 'Actualmente, el lector móvil solo admite direcciones IPv4 de enlace.',
+ 'mobile_reader_no_address': 'Aún no se ha detectado ninguna dirección LAN privada. Asegúrate de que el ordenador y el '
+                             'teléfono estén conectados a la misma red.',
+ 'mobile_reader_pages_ready': 'Todas las páginas del capítulo están listas.',
+ 'mobile_reader_port': 'Puerto',
+ 'mobile_reader_port_hint': 'Puerto TCP para el lector móvil local. Predeterminado: 8765.',
+ 'mobile_reader_preloading_pages': 'Precargando páginas… {done}/{total}',
+ 'mobile_reader_security_hint': 'El lector móvil solo acepta dispositivos de redes locales/privadas y no tiene '
+                                'contraseña. No redirijas este puerto a Internet.',
+ 'mobile_reader_start_failed': 'No se pudo iniciar el lector móvil: {error}',
+ 'mobile_reader_started': 'Lector móvil iniciado: {url}',
+ 'mobile_reader_started_local_only': 'El lector móvil se inició en el puerto {port}, pero no se pudo detectar una '
+                                     'dirección LAN.',
  'mode_cbz': 'CBZ por capítulo',
  'mode_cbz_pdf': 'CBZ + PDF',
  'mode_images': 'Imágenes en carpetas',
@@ -276,8 +302,6 @@ TEXT = {'accent': 'Color de acento',
  'queue_default_file': 'mangodango_queue.json',
  'queue_empty': 'La cola está vacía.',
  'queue_filter': 'Colas de MangoDango (*.json *.mangodango);;Archivos JSON (*.json)',
- 'read_marked': "'{title}' marcado como leído.",
- 'read_unmarked': "'{title}' marcado como no leído.",
  'reader': 'Lector',
  'reader_chapter': 'Capítulo',
  'reader_close': 'Cerrar',
@@ -292,8 +316,8 @@ TEXT = {'accent': 'Color de acento',
  'reader_mode_strip_double': 'Tira larga con páginas dobles',
  'reader_mode_strip_single': 'Tira larga',
  'reader_next': 'Siguiente',
- 'reader_no_pages': 'No se han encontrado páginas de manga guardadas localmente. Descarga primero capítulos '
-                    'como carpetas de imágenes o CBZ.',
+ 'reader_no_pages': 'No se han encontrado páginas de manga guardadas localmente. Descarga primero capítulos como '
+                    'carpetas de imágenes o CBZ.',
  'reader_no_selection': 'Selecciona primero un manga o capítulo.',
  'reader_page': 'Página',
  'reader_page_info': '{manga} — {chapter} · Página {page}/{pages} · Total {current}/{total}',
@@ -307,9 +331,7 @@ TEXT = {'accent': 'Color de acento',
  'reader_start_continue_unavailable': 'Aún no existe una posición de lectura guardada para este manga.',
  'reader_start_latest': 'Último capítulo',
  'reader_start_text': '¿Dónde quieres abrir {manga}?',
- 'reader_start_text_with_continue': '¿Dónde quieres abrir {manga}?\n'
-                                    '\n'
-                                    'Posición guardada: {chapter}, página {page}.',
+ 'reader_start_text_with_continue': '¿Dónde quieres abrir {manga}?\n\nPosición guardada: {chapter}, página {page}.',
  'reader_start_title': 'Elegir inicio de lectura',
  'reader_title': 'Lector de manga',
  'reader_zoom_reset': 'Restablecer zoom {zoom}%',
@@ -327,8 +349,8 @@ TEXT = {'accent': 'Color de acento',
  'rename_prompt': 'Nuevo nombre:',
  'request_delay': 'Pausa por capítulo',
  'reset': 'Restablecer',
- 'reset_confirm': '¿Eliminar los ajustes de MangoDango, el estado de la cola y los archivos temporales de '
-                  'este equipo? Las descargas no se eliminarán.',
+ 'reset_confirm': '¿Eliminar los ajustes de MangoDango, el estado de la cola y los archivos temporales de este equipo? '
+                  'Las descargas no se eliminarán.',
  'reset_done': 'Restablecimiento completado.',
  'reset_theme': 'Restablecer',
  'reset_themes': 'Restablecer temas',
@@ -372,6 +394,7 @@ TEXT = {'accent': 'Color de acento',
  'settings_tab_general': 'General',
  'settings_tab_help': 'Ayuda',
  'settings_tab_manga_list': 'Lista de mangas',
+ 'settings_tab_mobile_reader': 'Lector móvil',
  'status_closing': 'Cerrando… esperando a que terminen las tareas activas.',
  'status_done': 'Hecho',
  'status_failed': 'Fallido',
@@ -400,8 +423,8 @@ TEXT = {'accent': 'Color de acento',
  'updates_add_and_download': 'Añadir y descargar',
  'updates_add_selected': 'Añadir la selección a la cola',
  'updates_added_to_queue': 'Se añadieron nuevos capítulos a la cola: {count}',
- 'updates_background_added': 'Comprobación de actualizaciones en segundo plano: se añadieron {count} '
-                             'capítulos nuevos a la cola.',
+ 'updates_background_added': 'Comprobación de actualizaciones en segundo plano: se añadieron {count} capítulos nuevos '
+                             'a la cola.',
  'updates_background_status': 'Comprobando actualizaciones en segundo plano: {index}/{total}',
  'updates_canceling': 'Cancelando la comprobación de actualizaciones…',
  'updates_check_failed': 'La comprobación de actualizaciones falló para {title}: {error}',
@@ -412,10 +435,10 @@ TEXT = {'accent': 'Color de acento',
  'updates_download_after_add': 'Iniciar la descarga tras añadir',
  'updates_found_for_manga': 'Nuevos capítulos encontrados para {title}: {count}',
  'updates_new_chapters': '{count} capítulo(s) nuevo(s)',
- 'updates_no_downloadable_chapters': 'Los capítulos encontrados ya están completos en el disco o '
-                                     'desactivados; no se inició ninguna descarga.',
- 'updates_no_metadata': 'No se han encontrado archivos de metadatos de MangoDango. Un manga puede '
-                        'comprobarse automáticamente después de descargarlo una vez con esta versión.',
+ 'updates_no_downloadable_chapters': 'Los capítulos encontrados ya están completos en el disco o desactivados; no se '
+                                     'inició ninguna descarga.',
+ 'updates_no_metadata': 'No se han encontrado archivos de metadatos de MangoDango. Un manga puede comprobarse '
+                        'automáticamente después de descargarlo una vez con esta versión.',
  'updates_no_selection': 'No se ha seleccionado ningún capítulo de actualización.',
  'updates_none_for_manga': 'No se han encontrado capítulos nuevos para {title}.',
  'updates_none_found': 'No se han encontrado capítulos nuevos.',
