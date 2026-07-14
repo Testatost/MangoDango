@@ -1,25 +1,23 @@
-# -*- coding: utf-8 -*-
 TEXT = {'accent': 'Dath aibhsithe',
  'add_to_queue': 'Cuir leis an scuaine',
  'all_files_filter': 'Gach comhad (*)',
  'app_settings_button': 'Socruithe',
  'app_settings_title': 'Socruithe',
  'app_title': 'MangoDango',
- 'appearance_hint': 'Roghnaigh téama molta nó socraigh do dhathanna féin. Is féidir dathanna saincheaptha a '
-                    'shábháil mar théama agus a roghnú arís níos déanaí.',
+ 'appearance_hint': 'Roghnaigh téama molta nó socraigh do dhathanna féin. Is féidir dathanna saincheaptha a shábháil '
+                    'mar théama agus a roghnú arís níos déanaí.',
  'apply': 'Cuir i bhfeidhm',
  'apply_to_children': 'Cuir i bhfeidhm ar na caibidlí go léir thíos',
  'auto_download_updates': 'Íoslódáil caibidlí nua go huathoibríoch',
- 'auto_download_updates_hint': 'Íoslódáil go huathoibríoch na caibidlí nua a aimsíodh tar éis iad a chur sa '
-                               'scuaine.',
+ 'auto_download_updates_hint': 'Íoslódáil go huathoibríoch na caibidlí nua a aimsíodh tar éis iad a chur sa scuaine.',
  'automation_add': 'Cuir leis',
  'automation_day': 'Lá',
  'automation_disabled_log': 'Uathoibriú díchumasaithe.',
  'automation_enable': 'Cumasaigh uathoibriú',
  'automation_enabled_log': 'Uathoibriú cumasaithe: {count} am.',
- 'automation_hint': 'Nuair atá sé cumasaithe, seiceálann MangoDango an fillteán sprice le haghaidh caibidlí '
-                    'nua ar na laethanta agus na hamanna a chuireann tú leis thíos. Má tá íoslódáil '
-                    'uathoibríoch air, íoslódáiltear caibidlí nua láithreach.',
+ 'automation_hint': 'Nuair atá sé cumasaithe, seiceálann MangoDango an fillteán sprice le haghaidh caibidlí nua ar na '
+                    'laethanta agus na hamanna a chuireann tú leis thíos. Má tá íoslódáil uathoibríoch air, '
+                    'íoslódáiltear caibidlí nua láithreach.',
  'automation_remove': 'Bain',
  'automation_schedule': 'Sceideal',
  'automation_slot_label': '{day} ag {time}',
@@ -28,8 +26,8 @@ TEXT = {'accent': 'Dath aibhsithe',
  'cancel': 'Cealaigh',
  'chapter_fallback': 'Caibidil {number}',
  'check_updates_on_startup': 'Seiceáil le haghaidh caibidlí nua ag am tosaithe',
- 'check_updates_on_startup_hint': 'Ag am tosaithe, léigh meiteashonraí MangoDango san fhillteán sprice agus '
-                                  'seiceáil le haghaidh caibidlí nua ar WeebCentral.',
+ 'check_updates_on_startup_hint': 'Ag am tosaithe, léigh meiteashonraí MangoDango san fhillteán sprice agus seiceáil '
+                                  'le haghaidh caibidlí nua ar WeebCentral.',
  'choose_color': 'Roghnaigh dath',
  'choose_dir': 'Roghnaigh fillteán',
  'choose_folder': 'Roghnaigh fillteán…',
@@ -37,8 +35,8 @@ TEXT = {'accent': 'Dath aibhsithe',
  'close': 'Dún',
  'collector_canceling': 'Cealú bailiú na nasc…',
  'collector_current': 'Á bhailiú: {url}',
- 'collector_message': "Tá MangoDango ag bailiú URLanna na gcaibidlí. Le haghaidh manga mór, d'fhéadfadh sé "
-                      'seo tamall a thógáil.',
+ 'collector_message': "Tá MangoDango ag bailiú URLanna na gcaibidlí. Le haghaidh manga mór, d'fhéadfadh sé seo tamall "
+                      'a thógáil.',
  'collector_title': 'Bailiú nasc',
  'color_accent': 'Béim',
  'color_background': 'Cúlra',
@@ -104,13 +102,13 @@ TEXT = {'accent': 'Dath aibhsithe',
  'help_update_checking': 'Ag seiceáil GitHub don eisiúint is déanaí…',
  'help_update_downloading': 'Fuarthas eisiúint níos nuaí. Tá an nuashonrú á íoslódáil…',
  'help_update_failed': 'Theip ar sheiceáil an nuashonraithe: {error}',
- 'help_update_hint': 'Seiceálann sé an stór oifigiúil GitHub le haghaidh eisiúint níos nuaí agus is féidir '
-                     'leis í a shuiteáil go huathoibríoch.',
+ 'help_update_hint': 'Seiceálann sé an stór oifigiúil GitHub le haghaidh eisiúint níos nuaí agus is féidir leis í a '
+                     'shuiteáil go huathoibríoch.',
  'help_update_install_failed': 'Níorbh fhéidir an nuashonrú a ullmhú: {error}',
  'help_update_latest': 'Tá MangoDango cothrom le dáta. An leagan eisiúna is déanaí: {version}.',
  'help_update_ready': 'Tá leagan {version} íoslódáilte agus réidh le suiteáil.',
- 'help_update_restart_question': 'Tá leagan {version} íoslódáilte. Scoir de MangoDango, suiteáil an '
-                                 'nuashonrú agus atosaigh anois?',
+ 'help_update_restart_question': 'Tá leagan {version} íoslódáilte. Scoir de MangoDango, suiteáil an nuashonrú agus '
+                                 'atosaigh anois?',
  'help_update_restarting': 'Leagan {version} á shuiteáil. Atosóidh MangoDango…',
  'help_update_title': 'Nuashonrú MangoDango',
  'home_weebcentral': 'WeebCentral',
@@ -160,8 +158,7 @@ TEXT = {'accent': 'Dath aibhsithe',
  'log_download_resumed': 'Íoslódáil atosaithe: {count} caibidil fágtha, sprioc: {path}',
  'log_download_started': 'Íoslódáil tosaithe: {count} caibidil, sprioc: {path}',
  'log_download_stop_requested': 'Iarradh stopadh; críochnóidh íoslódálacha íomhá gníomhacha ar dtús.',
- 'log_download_stopped_after_active': 'Íoslódáil stoptha; críochnaíodh na híoslódálacha íomhá gníomhacha go '
-                                      'sábháilte.',
+ 'log_download_stopped_after_active': 'Íoslódáil stoptha; críochnaíodh na híoslódálacha íomhá gníomhacha go sábháilte.',
  'log_duplicate': 'Ann cheana: {url}',
  'log_existing_chapter_skipped': 'Ar an diosca cheana, ligeadh thar: {manga} — {chapter}',
  'log_existing_chapters_detected': 'Ar an diosca cheana do {title}: {count} caibidil.',
@@ -172,20 +169,20 @@ TEXT = {'accent': 'Dath aibhsithe',
  'log_images_removed': 'Fillteán íomhánna bainte: {title} — {path}',
  'log_language_set': 'Teanga socraithe: {language}',
  'log_large_queue_disk_scan_skipped': 'Lódáladh scuaine mhór ({rows} sraith). Ligeadh thar an scanadh diosca '
-                                      'láithreach ionas go lódálfaí an scuaine go tapa; seiceálfar arís é '
-                                      'roimh an íoslódáil.',
+                                      'láithreach ionas go lódálfaí an scuaine go tapa; seiceálfar arís é roimh an '
+                                      'íoslódáil.',
  'log_merged_manga': 'Manga nuashonraithe: {title} ({count} caibidil nua)',
- 'log_no_active_chapters': 'Níor tosaíodh an íoslódáil: níl aon chaibidil chumasaithe sa scuaine nach bhfuil '
-                           'ann cheana.',
+ 'log_no_active_chapters': 'Níor tosaíodh an íoslódáil: níl aon chaibidil chumasaithe sa scuaine nach bhfuil ann '
+                           'cheana.',
  'log_no_images': 'Níor aimsíodh aon íomhá: {title}',
  'log_output_dir_changed': 'Fillteán sprice athraithe: {path}',
  'log_output_hidden': 'Painéal loga i bhfolach.',
  'log_output_shown': 'Painéal loga taispeánta.',
  'log_pdf_saved': 'PDF sábháilte: {path}',
  'log_queue_cleared': 'Scuaine glanta: baineadh {count} mír.',
- 'log_queue_large_optimized': 'Braitheadh scuaine mhór ({rows} sraith). Díchumasaíodh na roghchláir anuas '
-                              'ionsuite le haghaidh feidhmíocht níos fearr; is féidir socruithe a athrú fós '
-                              'trí dheasChliceáil/Socruithe.',
+ 'log_queue_large_optimized': 'Braitheadh scuaine mhór ({rows} sraith). Díchumasaíodh na roghchláir anuas ionsuite le '
+                              'haghaidh feidhmíocht níos fearr; is féidir socruithe a athrú fós trí '
+                              'dheasChliceáil/Socruithe.',
  'log_queue_load_failed': 'Níorbh fhéidir an scuaine a lódáil: {path} ({error})',
  'log_queue_load_skipped': 'Ligeadh thar {count} iontráil scuaine neamhbhailí.',
  'log_queue_load_started': 'Scuaine á lódáil: {path}',
@@ -199,8 +196,7 @@ TEXT = {'accent': 'Dath aibhsithe',
  'log_style_fallback': "Ag filleadh ar an stíl léitheoireachta '{style}'.",
  'log_style_low_count': 'Níl ach {count} URL íomhá inúsáidte le {style}; ag triail cúltaca.',
  'log_theme_applied': 'Cuma curtha i bhfeidhm: {theme}',
- 'log_try_chapter_page': 'Níor aimsíodh aon íomhá inúsáidte ar /images; ag triail leathanach na caibidle go '
-                         'díreach.',
+ 'log_try_chapter_page': 'Níor aimsíodh aon íomhá inúsáidte ar /images; ag triail leathanach na caibidle go díreach.',
  'manga_directory': 'Comhadlann manga',
  'manga_list_action_no_selection': 'Níl aon manga cumasaithe don ghníomh seo.',
  'manga_list_check_all': 'Seiceáil gach ceann',
@@ -214,8 +210,8 @@ TEXT = {'accent': 'Dath aibhsithe',
  'manga_list_download_now': 'Íoslódáil anois',
  'manga_list_empty': 'Níor aimsíodh aon manga san fhillteán sprice go fóill.',
  'manga_list_header_toggle_hint': 'Cliceáil chun gach manga sa cholún seo a chumasú nó a dhíchumasú.',
- 'manga_list_hint': 'Roghnaigh cé na mangaí a sheiceáiltear le haghaidh nuashonruithe agus a íoslódáiltear '
-                    'go huathoibríoch. Ní phróiseálann na feidhmeanna uathoibríocha ach na cinn ticeáilte.',
+ 'manga_list_hint': 'Roghnaigh cé na mangaí a sheiceáiltear le haghaidh nuashonruithe agus a íoslódáiltear go '
+                    'huathoibríoch. Ní phróiseálann na feidhmeanna uathoibríocha ach na cinn ticeáilte.',
  'menu_auto_add': 'Cuir leis an uathnuashonrú',
  'menu_auto_added': "Cuireadh '{title}' leis an uathnuashonrú.",
  'menu_auto_remove': 'Bain den uathnuashonrú',
@@ -223,12 +219,44 @@ TEXT = {'accent': 'Dath aibhsithe',
  'menu_change_cover': 'Athraigh an clúdach',
  'menu_delete': 'Scrios',
  'menu_favorite': 'Marcáil mar cheanán',
- 'menu_mark_read': 'Marcáil mar léite',
- 'menu_mark_unread': 'Marcáil mar neamhléite',
  'menu_open_source': 'Oscail leathanach na foinse',
  'menu_rename': 'Athainmnigh',
  'menu_unfavorite': 'Bain den cheanán',
  'metadata_write_failed': 'Níorbh fhéidir meiteashonraí a scríobh do {title}: {error}',
+ 'mobile_error_conflict': 'Tá an t-athrú i gcoimhlint le comhad nó manga atá ann cheana.',
+ 'mobile_error_internal': 'Níorbh fhéidir an t-iarratas a chur i gcrích.',
+ 'mobile_error_invalid_request': 'Tá an t-iarratas neamhbhailí.',
+ 'mobile_error_local_only': 'Ní cheadaítear rochtain ach ón líonra áitiúil/príobháideach.',
+ 'mobile_error_not_found': 'Níor aimsíodh an mhír iarrtha.',
+ 'mobile_error_write_rejected': 'Diúltaíodh don iarratas scríofa.',
+ 'mobile_reader_action_failed': 'Theip ar an ngníomh: {error}',
+ 'mobile_reader_addresses': 'Oscail ceann de na seoltaí seo ar an bhfón:',
+ 'mobile_reader_description': 'Léigh do leabharlann MangoDango ar fhón nó ar tháibléad ar an Wi-Fi/LAN céanna. Tá '
+                              'leabharlann, liosta caibidlí, léitheoir agus roghchlár bainistíochta manga sa '
+                              'chomhéadan soghluaiste, ach níl íoslódálaí ann.',
+ 'mobile_reader_enable': 'Cumasaigh an léitheoir soghluaiste ar an líonra áitiúil',
+ 'mobile_reader_enable_hint': 'Tosaíonn sé leabharlann ghréasáin le léitheoir manga d’fhóin agus do tháibléid ar an '
+                              'líonra áitiúil céanna.',
+ 'mobile_reader_host': 'Seoladh IP ceangailte',
+ 'mobile_reader_host_hint': 'Úsáid 0.0.0.0 chun éisteacht ar gach comhéadan IPv4 áitiúil, nó cuir isteach seoladh IPv4 '
+                            'áitiúil sonrach an ríomhaire seo.',
+ 'mobile_reader_hostname_hint': 'Má thacaíonn an líonra leis, tá MangoDango ar fáil freisin ag '
+                                'http://mangodango.local. Teastaíonn cumraíocht DNS ó sheoladh poiblí ar nós '
+                                'mangodango.de agus ní féidir leis an aip amháin é a chruthú.',
+ 'mobile_reader_invalid_host': 'Seoladh IP neamhbhailí don léitheoir soghluaiste: {host}',
+ 'mobile_reader_ipv4_only': 'Ní thacaíonn an léitheoir soghluaiste faoi láthair ach le seoltaí ceangailte IPv4.',
+ 'mobile_reader_no_address': 'Níor aimsíodh seoladh LAN príobháideach fós. Cinntigh go bhfuil an ríomhaire agus an fón '
+                             'ceangailte leis an líonra céanna.',
+ 'mobile_reader_pages_ready': 'Tá leathanaigh uile na caibidle réidh.',
+ 'mobile_reader_port': 'Port',
+ 'mobile_reader_port_hint': 'Port TCP don léitheoir soghluaiste áitiúil. Réamhshocrú: 8765.',
+ 'mobile_reader_preloading_pages': 'Leathanaigh á réamhlódáil… {done}/{total}',
+ 'mobile_reader_security_hint': 'Ní ghlacann an léitheoir soghluaiste ach le gléasanna ar líonra áitiúil/príobháideach '
+                                'agus níl pasfhocal aige. Ná cuir an port seo ar aghaidh chuig an idirlíon poiblí.',
+ 'mobile_reader_start_failed': 'Níorbh fhéidir an léitheoir soghluaiste a thosú: {error}',
+ 'mobile_reader_started': 'Léitheoir soghluaiste tosaithe: {url}',
+ 'mobile_reader_started_local_only': 'Tosaíodh an léitheoir soghluaiste ar phort {port}, ach níorbh fhéidir seoladh '
+                                     'LAN a aimsiú.',
  'mode_cbz': 'CBZ in aghaidh na caibidle',
  'mode_cbz_pdf': 'CBZ + PDF',
  'mode_images': 'Íomhánna i bhfillteáin',
@@ -276,8 +304,6 @@ TEXT = {'accent': 'Dath aibhsithe',
  'queue_default_file': 'mangodango_queue.json',
  'queue_empty': 'Tá an scuaine folamh.',
  'queue_filter': 'Scuainí MangoDango (*.json *.mangodango);;Comhaid JSON (*.json)',
- 'read_marked': "Marcáladh '{title}' mar léite.",
- 'read_unmarked': "Marcáladh '{title}' mar neamhléite.",
  'reader': 'Léitheoir',
  'reader_chapter': 'Caibidil',
  'reader_close': 'Dún',
@@ -292,8 +318,8 @@ TEXT = {'accent': 'Dath aibhsithe',
  'reader_mode_strip_double': 'Stiall fhada le leathanaigh dhúbailte',
  'reader_mode_strip_single': 'Stiall fhada',
  'reader_next': 'Ar aghaidh',
- 'reader_no_pages': 'Níor aimsíodh aon leathanach manga sábháilte go háitiúil. Íoslódáil caibidlí ar dtús '
-                    'mar fhillteáin íomhá nó CBZ.',
+ 'reader_no_pages': 'Níor aimsíodh aon leathanach manga sábháilte go háitiúil. Íoslódáil caibidlí ar dtús mar '
+                    'fhillteáin íomhá nó CBZ.',
  'reader_no_selection': 'Roghnaigh manga nó caibidil ar dtús.',
  'reader_page': 'Leathanach',
  'reader_page_info': '{manga} — {chapter} · Leathanach {page}/{pages} · Iomlán {current}/{total}',
@@ -327,8 +353,8 @@ TEXT = {'accent': 'Dath aibhsithe',
  'rename_prompt': 'Ainm nua:',
  'request_delay': 'Sos in aghaidh caibidle',
  'reset': 'Athshocraigh',
- 'reset_confirm': 'Scrios socruithe MangoDango, staid na scuaine agus comhaid shealadacha ón ríomhaire seo? '
-                  'Ní scriosfar na híoslódálacha.',
+ 'reset_confirm': 'Scrios socruithe MangoDango, staid na scuaine agus comhaid shealadacha ón ríomhaire seo? Ní '
+                  'scriosfar na híoslódálacha.',
  'reset_done': 'Athshocrú críochnaithe.',
  'reset_theme': 'Athshocraigh',
  'reset_themes': 'Athshocraigh na téamaí',
@@ -372,6 +398,7 @@ TEXT = {'accent': 'Dath aibhsithe',
  'settings_tab_general': 'Ginearálta',
  'settings_tab_help': 'Cabhair',
  'settings_tab_manga_list': 'Liosta manga',
+ 'settings_tab_mobile_reader': 'Léitheoir soghluaiste',
  'status_closing': 'Á dhúnadh… ag fanacht go gcríochnóidh na tascanna gníomhacha.',
  'status_done': 'Déanta',
  'status_failed': 'Theip',
@@ -400,8 +427,7 @@ TEXT = {'accent': 'Dath aibhsithe',
  'updates_add_and_download': 'Cuir leis agus íoslódáil',
  'updates_add_selected': 'Cuir na cinn roghnaithe leis an scuaine',
  'updates_added_to_queue': 'Caibidlí nua curtha leis an scuaine: {count}',
- 'updates_background_added': 'Seiceáil nuashonruithe sa chúlra: cuireadh {count} caibidil nua leis an '
-                             'scuaine.',
+ 'updates_background_added': 'Seiceáil nuashonruithe sa chúlra: cuireadh {count} caibidil nua leis an scuaine.',
  'updates_background_status': 'Seiceáil nuashonruithe sa chúlra: {index}/{total}',
  'updates_canceling': 'Cealú seiceáil na nuashonruithe…',
  'updates_check_failed': 'Theip ar sheiceáil na nuashonruithe do {title}: {error}',
@@ -412,8 +438,8 @@ TEXT = {'accent': 'Dath aibhsithe',
  'updates_download_after_add': 'Tosaigh an íoslódáil tar éis cur leis',
  'updates_found_for_manga': 'Aimsíodh caibidlí nua do {title}: {count}',
  'updates_new_chapters': '{count} caibidil nua',
- 'updates_no_downloadable_chapters': 'Tá na caibidlí a aimsíodh iomlán ar an diosca cheana nó díchumasaithe; '
-                                     'níor tosaíodh aon íoslódáil.',
+ 'updates_no_downloadable_chapters': 'Tá na caibidlí a aimsíodh iomlán ar an diosca cheana nó díchumasaithe; níor '
+                                     'tosaíodh aon íoslódáil.',
  'updates_no_metadata': 'Níor aimsíodh aon chomhad meiteashonraí MangoDango. Is féidir manga a sheiceáil go '
                         'huathoibríoch tar éis é a íoslódáil uair amháin leis an leagan seo.',
  'updates_no_selection': 'Níor roghnaíodh aon chaibidil nuashonraithe.',

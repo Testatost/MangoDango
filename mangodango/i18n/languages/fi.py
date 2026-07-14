@@ -1,12 +1,11 @@
-# -*- coding: utf-8 -*-
 TEXT = {'accent': 'Korostusväri',
  'add_to_queue': 'Lisää jonoon',
  'all_files_filter': 'Kaikki tiedostot (*)',
  'app_settings_button': 'Asetukset',
  'app_settings_title': 'Asetukset',
  'app_title': 'MangoDango',
- 'appearance_hint': 'Valitse ehdotettu teema tai määritä omat värit. Omat värit voi tallentaa teemaksi ja '
-                    'valita myöhemmin uudelleen.',
+ 'appearance_hint': 'Valitse ehdotettu teema tai määritä omat värit. Omat värit voi tallentaa teemaksi ja valita '
+                    'myöhemmin uudelleen.',
  'apply': 'Käytä',
  'apply_to_children': 'Käytä kaikkiin alla oleviin lukuihin',
  'auto_download_updates': 'Lataa uudet luvut automaattisesti',
@@ -16,9 +15,9 @@ TEXT = {'accent': 'Korostusväri',
  'automation_disabled_log': 'Automaatio poistettu käytöstä.',
  'automation_enable': 'Ota automaatio käyttöön',
  'automation_enabled_log': 'Automaatio käytössä: {count} ajankohta(a).',
- 'automation_hint': 'Kun automaatio on käytössä, MangoDango tarkistaa kohdekansion uusien lukujen varalta '
-                    'alla lisääminäsi päivinä ja kellonaikoina. Jos automaattinen lataus on käytössä, uudet '
-                    'luvut ladataan heti.',
+ 'automation_hint': 'Kun automaatio on käytössä, MangoDango tarkistaa kohdekansion uusien lukujen varalta alla '
+                    'lisääminäsi päivinä ja kellonaikoina. Jos automaattinen lataus on käytössä, uudet luvut ladataan '
+                    'heti.',
  'automation_remove': 'Poista',
  'automation_schedule': 'Aikataulu',
  'automation_slot_label': '{day} klo {time}',
@@ -27,8 +26,8 @@ TEXT = {'accent': 'Korostusväri',
  'cancel': 'Peruuta',
  'chapter_fallback': 'Luku {number}',
  'check_updates_on_startup': 'Tarkista uudet luvut käynnistyksessä',
- 'check_updates_on_startup_hint': 'Lue käynnistyksessä MangoDango-metatiedot kohdekansiosta ja tarkista '
-                                  'uudet luvut WeebCentralista.',
+ 'check_updates_on_startup_hint': 'Lue käynnistyksessä MangoDango-metatiedot kohdekansiosta ja tarkista uudet luvut '
+                                  'WeebCentralista.',
  'choose_color': 'Valitse väri',
  'choose_dir': 'Valitse kansio',
  'choose_folder': 'Valitse kansio…',
@@ -107,8 +106,8 @@ TEXT = {'accent': 'Korostusväri',
  'help_update_install_failed': 'Päivitystä ei voitu valmistella: {error}',
  'help_update_latest': 'MangoDango on ajan tasalla. Uusin julkaisuversio: {version}.',
  'help_update_ready': 'Versio {version} on ladattu ja valmis asennettavaksi.',
- 'help_update_restart_question': 'Versio {version} on ladattu. Suljetaanko MangoDango, asennetaanko päivitys '
-                                 'ja käynnistetäänkö nyt uudelleen?',
+ 'help_update_restart_question': 'Versio {version} on ladattu. Suljetaanko MangoDango, asennetaanko päivitys ja '
+                                 'käynnistetäänkö nyt uudelleen?',
  'help_update_restarting': 'Asennetaan versiota {version}. MangoDango käynnistyy uudelleen…',
  'help_update_title': 'MangoDango-päivitys',
  'home_weebcentral': 'WeebCentral',
@@ -158,8 +157,7 @@ TEXT = {'accent': 'Korostusväri',
  'log_download_resumed': 'Latausta jatkettu: {count} jäljellä olevaa lukua, kohde: {path}',
  'log_download_started': 'Lataus aloitettu: {count} lukua, kohde: {path}',
  'log_download_stop_requested': 'Pysäytys pyydetty; aktiiviset kuvalataukset viimeistellään ensin.',
- 'log_download_stopped_after_active': 'Lataus pysäytetty; aktiiviset kuvalataukset suoritettiin '
-                                      'turvallisesti loppuun.',
+ 'log_download_stopped_after_active': 'Lataus pysäytetty; aktiiviset kuvalataukset suoritettiin turvallisesti loppuun.',
  'log_duplicate': 'Jo olemassa: {url}',
  'log_existing_chapter_skipped': 'Jo levyllä, ohitettu: {manga} — {chapter}',
  'log_existing_chapters_detected': 'Jo levyllä kohteelle {title}: {count} luku(a).',
@@ -169,9 +167,8 @@ TEXT = {'accent': 'Korostusväri',
  'log_images_found': 'Löytyi {count} kuvaa.',
  'log_images_removed': 'Kuvakansio poistettu: {title} — {path}',
  'log_language_set': 'Kieli asetettu: {language}',
- 'log_large_queue_disk_scan_skipped': 'Suuri jono ladattu ({rows} riviä). Välitön levyn tarkistus '
-                                      'ohitettiin, jotta jono latautuu nopeasti; se tarkistetaan uudelleen '
-                                      'ennen latausta.',
+ 'log_large_queue_disk_scan_skipped': 'Suuri jono ladattu ({rows} riviä). Välitön levyn tarkistus ohitettiin, jotta '
+                                      'jono latautuu nopeasti; se tarkistetaan uudelleen ennen latausta.',
  'log_merged_manga': 'Manga päivitetty: {title} ({count} uutta lukua)',
  'log_no_active_chapters': 'Latausta ei aloitettu: jonossa ei ole käytössä olevia lukuja, joita ei jo ole.',
  'log_no_images': 'Kuvia ei löytynyt: {title}',
@@ -180,9 +177,9 @@ TEXT = {'accent': 'Korostusväri',
  'log_output_shown': 'Lokipaneeli näytetty.',
  'log_pdf_saved': 'PDF tallennettu: {path}',
  'log_queue_cleared': 'Jono tyhjennetty: {count} kohdetta poistettu.',
- 'log_queue_large_optimized': 'Suuri jono havaittu ({rows} riviä). Upotetut pudotusvalikot poistettiin '
-                              'käytöstä paremman suorituskyvyn vuoksi; asetuksia voi silti muuttaa hiiren '
-                              'oikealla painikkeella/Asetukset.',
+ 'log_queue_large_optimized': 'Suuri jono havaittu ({rows} riviä). Upotetut pudotusvalikot poistettiin käytöstä '
+                              'paremman suorituskyvyn vuoksi; asetuksia voi silti muuttaa hiiren oikealla '
+                              'painikkeella/Asetukset.',
  'log_queue_load_failed': 'Jonoa ei voitu ladata: {path} ({error})',
  'log_queue_load_skipped': 'Ohitettiin {count} virheellistä jonomerkintää.',
  'log_queue_load_started': 'Ladataan jonoa: {path}',
@@ -197,8 +194,7 @@ TEXT = {'accent': 'Korostusväri',
  'log_style_low_count': 'Vain {count} käyttökelpoista kuvan URL-osoitetta tyylillä {style}; kokeillaan '
                         'varavaihtoehtoa.',
  'log_theme_applied': 'Ulkoasu otettu käyttöön: {theme}',
- 'log_try_chapter_page': 'Kohteesta /images ei löytynyt käyttökelpoisia kuvia; kokeillaan suoraan luvun '
-                         'sivua.',
+ 'log_try_chapter_page': 'Kohteesta /images ei löytynyt käyttökelpoisia kuvia; kokeillaan suoraan luvun sivua.',
  'manga_directory': 'Manga-hakemisto',
  'manga_list_action_no_selection': 'Yhtään mangaa ei ole otettu käyttöön tätä toimintoa varten.',
  'manga_list_check_all': 'Valitse kaikki',
@@ -211,8 +207,7 @@ TEXT = {'accent': 'Korostusväri',
  'manga_list_download_none': 'Älä lataa mitään',
  'manga_list_download_now': 'Lataa nyt',
  'manga_list_empty': 'Kohdekansiosta ei vielä löytynyt mangoja.',
- 'manga_list_header_toggle_hint': 'Ota kaikki tämän sarakkeen mangat käyttöön tai pois käytöstä '
-                                  'napsauttamalla.',
+ 'manga_list_header_toggle_hint': 'Ota kaikki tämän sarakkeen mangat käyttöön tai pois käytöstä napsauttamalla.',
  'manga_list_hint': 'Valitse, mitkä mangat tarkistetaan päivitysten varalta ja ladataan automaattisesti. '
                     'Automaattitoiminnot käsittelevät vain valitut mangat.',
  'menu_auto_add': 'Lisää automaattipäivitykseen',
@@ -222,12 +217,44 @@ TEXT = {'accent': 'Korostusväri',
  'menu_change_cover': 'Vaihda kansi',
  'menu_delete': 'Poista',
  'menu_favorite': 'Merkitse suosikiksi',
- 'menu_mark_read': 'Merkitse luetuksi',
- 'menu_mark_unread': 'Merkitse lukemattomaksi',
  'menu_open_source': 'Avaa lähdesivu',
  'menu_rename': 'Nimeä uudelleen',
  'menu_unfavorite': 'Poista suosikeista',
  'metadata_write_failed': 'Metatietoja kohteelle {title} ei voitu kirjoittaa: {error}',
+ 'mobile_error_conflict': 'Muutos on ristiriidassa olemassa olevan tiedoston tai mangan kanssa.',
+ 'mobile_error_internal': 'Pyyntöä ei voitu suorittaa loppuun.',
+ 'mobile_error_invalid_request': 'Pyyntö on virheellinen.',
+ 'mobile_error_local_only': 'Pääsy on sallittu vain paikallisesta/yksityisestä verkosta.',
+ 'mobile_error_not_found': 'Pyydettyä kohdetta ei löytynyt.',
+ 'mobile_error_write_rejected': 'Kirjoituspyyntö hylättiin.',
+ 'mobile_reader_action_failed': 'Toiminto epäonnistui: {error}',
+ 'mobile_reader_addresses': 'Avaa jokin näistä osoitteista puhelimessa:',
+ 'mobile_reader_description': 'Lue MangoDango-kirjastoasi puhelimella tai tabletilla samassa Wi-Fi/LAN-verkossa. '
+                              'Mobiilikäyttöliittymä sisältää kirjaston, lukuluettelon, lukijan ja mangan '
+                              'hallintavalikon, mutta ei lataajaa.',
+ 'mobile_reader_enable': 'Ota mobiililukija käyttöön paikallisverkossa',
+ 'mobile_reader_enable_hint': 'Käynnistää verkkokirjaston ja mangalukijan saman paikallisverkon puhelimille ja '
+                              'tableteille.',
+ 'mobile_reader_host': 'Sidottava IP-osoite',
+ 'mobile_reader_host_hint': 'Käytä osoitetta 0.0.0.0 kuunnellaksesi kaikilla paikallisilla IPv4-liitännöillä tai anna '
+                            'tämän tietokoneen tietty paikallinen IPv4-osoite.',
+ 'mobile_reader_hostname_hint': 'Jos verkko tukee sitä, MangoDango on saatavilla myös osoitteessa '
+                                'http://mangodango.local. Julkinen osoite, kuten mangodango.de, vaatii DNS-määrityksen '
+                                'eikä sovellus voi luoda sitä yksin.',
+ 'mobile_reader_invalid_host': 'Mobiililukijan IP-osoite on virheellinen: {host}',
+ 'mobile_reader_ipv4_only': 'Mobiililukija tukee tällä hetkellä vain IPv4-sidontaosoitteita.',
+ 'mobile_reader_no_address': 'Yksityistä LAN-osoitetta ei ole vielä havaittu. Varmista, että tietokone ja puhelin ovat '
+                             'samassa verkossa.',
+ 'mobile_reader_pages_ready': 'Kaikki luvun sivut ovat valmiina.',
+ 'mobile_reader_port': 'Portti',
+ 'mobile_reader_port_hint': 'Paikallisen mobiililukijan TCP-portti. Oletus: 8765.',
+ 'mobile_reader_preloading_pages': 'Esiladataan sivuja… {done}/{total}',
+ 'mobile_reader_security_hint': 'Mobiililukija hyväksyy vain paikallis-/yksityisverkon laitteet eikä siinä ole '
+                                'salasanaa. Älä välitä tätä porttia julkiseen internetiin.',
+ 'mobile_reader_start_failed': 'Mobiililukijaa ei voitu käynnistää: {error}',
+ 'mobile_reader_started': 'Mobiililukija käynnistetty: {url}',
+ 'mobile_reader_started_local_only': 'Mobiililukija käynnistetty portissa {port}, mutta LAN-osoitetta ei voitu '
+                                     'havaita.',
  'mode_cbz': 'CBZ per luku',
  'mode_cbz_pdf': 'CBZ + PDF',
  'mode_images': 'Kuvat kansioissa',
@@ -275,8 +302,6 @@ TEXT = {'accent': 'Korostusväri',
  'queue_default_file': 'mangodango_queue.json',
  'queue_empty': 'Jono on tyhjä.',
  'queue_filter': 'MangoDango-jonot (*.json *.mangodango);;JSON-tiedostot (*.json)',
- 'read_marked': "'{title}' merkitty luetuksi.",
- 'read_unmarked': "'{title}' merkitty lukemattomaksi.",
  'reader': 'Lukija',
  'reader_chapter': 'Luku',
  'reader_close': 'Sulje',
@@ -291,8 +316,8 @@ TEXT = {'accent': 'Korostusväri',
  'reader_mode_strip_double': 'Pitkä nauha kaksoissivuilla',
  'reader_mode_strip_single': 'Pitkä nauha',
  'reader_next': 'Seuraava',
- 'reader_no_pages': 'Paikallisesti tallennettuja mangasivuja ei löytynyt. Lataa ensin lukuja kuvakansioina '
-                    'tai CBZ-tiedostoina.',
+ 'reader_no_pages': 'Paikallisesti tallennettuja mangasivuja ei löytynyt. Lataa ensin lukuja kuvakansioina tai '
+                    'CBZ-tiedostoina.',
  'reader_no_selection': 'Valitse ensin manga tai luku.',
  'reader_page': 'Sivu',
  'reader_page_info': '{manga} — {chapter} · Sivu {page}/{pages} · Yhteensä {current}/{total}',
@@ -306,9 +331,7 @@ TEXT = {'accent': 'Korostusväri',
  'reader_start_continue_unavailable': 'Tälle mangalle ei ole vielä tallennettua lukukohtaa.',
  'reader_start_latest': 'Uusin luku',
  'reader_start_text': 'Mistä haluat avata {manga}?',
- 'reader_start_text_with_continue': 'Mistä haluat avata {manga}?\n'
-                                    '\n'
-                                    'Tallennettu kohta: {chapter}, sivu {page}.',
+ 'reader_start_text_with_continue': 'Mistä haluat avata {manga}?\n\nTallennettu kohta: {chapter}, sivu {page}.',
  'reader_start_title': 'Valitse lukemisen aloitus',
  'reader_title': 'Mangalukija',
  'reader_zoom_reset': 'Nollaa zoomaus {zoom}%',
@@ -326,8 +349,8 @@ TEXT = {'accent': 'Korostusväri',
  'rename_prompt': 'Uusi nimi:',
  'request_delay': 'Tauko per luku',
  'reset': 'Nollaa',
- 'reset_confirm': 'Poistetaanko MangoDango-asetukset, jonon tila ja väliaikaiset tiedostot tästä '
-                  'tietokoneesta? Latauksia ei poisteta.',
+ 'reset_confirm': 'Poistetaanko MangoDango-asetukset, jonon tila ja väliaikaiset tiedostot tästä tietokoneesta? '
+                  'Latauksia ei poisteta.',
  'reset_done': 'Nollaus valmis.',
  'reset_theme': 'Nollaa',
  'reset_themes': 'Nollaa teemat',
@@ -371,6 +394,7 @@ TEXT = {'accent': 'Korostusväri',
  'settings_tab_general': 'Yleiset',
  'settings_tab_help': 'Ohje',
  'settings_tab_manga_list': 'Manga-luettelo',
+ 'settings_tab_mobile_reader': 'Mobiililukija',
  'status_closing': 'Suljetaan… odotetaan aktiivisten tehtävien valmistumista.',
  'status_done': 'Valmis',
  'status_failed': 'Epäonnistui',
@@ -410,10 +434,10 @@ TEXT = {'accent': 'Korostusväri',
  'updates_download_after_add': 'Aloita lataus lisäyksen jälkeen',
  'updates_found_for_manga': 'Uusia lukuja löytyi kohteelle {title}: {count}',
  'updates_new_chapters': '{count} uutta lukua',
- 'updates_no_downloadable_chapters': 'Löydetyt luvut ovat jo täydellisiä levyllä tai poistettu käytöstä; '
-                                     'latausta ei aloitettu.',
- 'updates_no_metadata': 'MangoDango-metatietotiedostoja ei löytynyt. Mangan voi tarkistaa automaattisesti, '
-                        'kun se on ladattu kerran tällä versiolla.',
+ 'updates_no_downloadable_chapters': 'Löydetyt luvut ovat jo täydellisiä levyllä tai poistettu käytöstä; latausta ei '
+                                     'aloitettu.',
+ 'updates_no_metadata': 'MangoDango-metatietotiedostoja ei löytynyt. Mangan voi tarkistaa automaattisesti, kun se on '
+                        'ladattu kerran tällä versiolla.',
  'updates_no_selection': 'Päivityslukuja ei valittu.',
  'updates_none_for_manga': 'Uusia lukuja ei löytynyt kohteelle {title}.',
  'updates_none_found': 'Uusia lukuja ei löytynyt.',

@@ -1,25 +1,24 @@
-# -*- coding: utf-8 -*-
 TEXT = {'accent': 'Accentkleur',
  'add_to_queue': 'Aan wachtrij toevoegen',
  'all_files_filter': 'Alle bestanden (*)',
  'app_settings_button': 'Instellingen',
  'app_settings_title': 'Instellingen',
  'app_title': 'MangoDango',
- 'appearance_hint': 'Kies een voorgesteld thema of stel je eigen kleuren in. Eigen kleuren kunnen als thema '
-                    'worden opgeslagen en later opnieuw worden gekozen.',
+ 'appearance_hint': 'Kies een voorgesteld thema of stel je eigen kleuren in. Eigen kleuren kunnen als thema worden '
+                    'opgeslagen en later opnieuw worden gekozen.',
  'apply': 'Toepassen',
  'apply_to_children': 'Toepassen op alle onderstaande hoofdstukken',
  'auto_download_updates': 'Nieuwe hoofdstukken automatisch downloaden',
- 'auto_download_updates_hint': 'Nieuw gevonden hoofdstukken automatisch downloaden nadat ze aan de wachtrij '
-                               'zijn toegevoegd.',
+ 'auto_download_updates_hint': 'Nieuw gevonden hoofdstukken automatisch downloaden nadat ze aan de wachtrij zijn '
+                               'toegevoegd.',
  'automation_add': 'Toevoegen',
  'automation_day': 'Dag',
  'automation_disabled_log': 'Automatisering uitgeschakeld.',
  'automation_enable': 'Automatisering inschakelen',
  'automation_enabled_log': 'Automatisering ingeschakeld: {count} tijdstip(pen).',
- 'automation_hint': 'Indien ingeschakeld controleert MangoDango de doelmap op nieuwe hoofdstukken op de '
-                    'dagen en tijden die je hieronder toevoegt. Als automatisch downloaden aanstaat, worden '
-                    'nieuwe hoofdstukken meteen gedownload.',
+ 'automation_hint': 'Indien ingeschakeld controleert MangoDango de doelmap op nieuwe hoofdstukken op de dagen en '
+                    'tijden die je hieronder toevoegt. Als automatisch downloaden aanstaat, worden nieuwe hoofdstukken '
+                    'meteen gedownload.',
  'automation_remove': 'Verwijderen',
  'automation_schedule': 'Planning',
  'automation_slot_label': '{day} om {time}',
@@ -28,8 +27,8 @@ TEXT = {'accent': 'Accentkleur',
  'cancel': 'Annuleren',
  'chapter_fallback': 'Hoofdstuk {number}',
  'check_updates_on_startup': 'Bij het opstarten op nieuwe hoofdstukken controleren',
- 'check_updates_on_startup_hint': 'Bij het opstarten de MangoDango-metadata in de doelmap lezen en op '
-                                  'WeebCentral naar nieuwe hoofdstukken zoeken.',
+ 'check_updates_on_startup_hint': 'Bij het opstarten de MangoDango-metadata in de doelmap lezen en op WeebCentral naar '
+                                  'nieuwe hoofdstukken zoeken.',
  'choose_color': 'Kleur kiezen',
  'choose_dir': 'Map kiezen',
  'choose_folder': 'Map kiezen…',
@@ -37,8 +36,7 @@ TEXT = {'accent': 'Accentkleur',
  'close': 'Sluiten',
  'collector_canceling': 'Verzamelen van links annuleren…',
  'collector_current': 'Verzamelen: {url}',
- 'collector_message': "MangoDango verzamelt de URL's van de hoofdstukken. Bij grote manga kan dit even "
-                      'duren.',
+ 'collector_message': "MangoDango verzamelt de URL's van de hoofdstukken. Bij grote manga kan dit even duren.",
  'collector_title': 'Links verzamelen',
  'color_accent': 'Accent',
  'color_background': 'Achtergrond',
@@ -66,8 +64,7 @@ TEXT = {'accent': 'Accentkleur',
  'cover_filter': 'Images (*.png *.jpg *.jpeg *.webp *.gif)',
  'custom_colors': 'Eigen kleuren',
  'defaults': 'Globale instellingen',
- 'delete_confirm': "'{title}' en alle bestanden van de schijf verwijderen? Dit kan niet ongedaan worden "
-                   'gemaakt.',
+ 'delete_confirm': "'{title}' en alle bestanden van de schijf verwijderen? Dit kan niet ongedaan worden gemaakt.",
  'delete_done': "'{title}' verwijderd.",
  'delete_failed': 'Verwijderen mislukt: {error}',
  'delete_template': 'Variant verwijderen',
@@ -105,13 +102,13 @@ TEXT = {'accent': 'Accentkleur',
  'help_update_checking': 'Op GitHub zoeken naar de nieuwste release…',
  'help_update_downloading': 'Er is een nieuwere release gevonden. De update wordt gedownload…',
  'help_update_failed': 'Controleren op updates mislukt: {error}',
- 'help_update_hint': 'Controleert de officiële GitHub-repository op een nieuwere release en kan die '
-                     'automatisch installeren.',
+ 'help_update_hint': 'Controleert de officiële GitHub-repository op een nieuwere release en kan die automatisch '
+                     'installeren.',
  'help_update_install_failed': 'De update kon niet worden voorbereid: {error}',
  'help_update_latest': 'MangoDango is bijgewerkt. Nieuwste releaseversie: {version}.',
  'help_update_ready': 'Versie {version} is gedownload en klaar om te installeren.',
- 'help_update_restart_question': 'Versie {version} is gedownload. MangoDango afsluiten, de update '
-                                 'installeren en nu opnieuw starten?',
+ 'help_update_restart_question': 'Versie {version} is gedownload. MangoDango afsluiten, de update installeren en nu '
+                                 'opnieuw starten?',
  'help_update_restarting': 'Versie {version} wordt geïnstalleerd. MangoDango wordt opnieuw gestart…',
  'help_update_title': 'MangoDango-update',
  'home_weebcentral': 'WeebCentral',
@@ -171,12 +168,12 @@ TEXT = {'accent': 'Accentkleur',
  'log_images_found': '{count} afbeeldingen gevonden.',
  'log_images_removed': 'Afbeeldingsmap verwijderd: {title} — {path}',
  'log_language_set': 'Taal ingesteld: {language}',
- 'log_large_queue_disk_scan_skipped': 'Grote wachtrij geladen ({rows} rijen). De directe schijfscan is '
-                                      'overgeslagen zodat de wachtrij snel laadt; deze wordt vóór het '
-                                      'downloaden opnieuw gecontroleerd.',
+ 'log_large_queue_disk_scan_skipped': 'Grote wachtrij geladen ({rows} rijen). De directe schijfscan is overgeslagen '
+                                      'zodat de wachtrij snel laadt; deze wordt vóór het downloaden opnieuw '
+                                      'gecontroleerd.',
  'log_merged_manga': 'Manga bijgewerkt: {title} ({count} nieuwe hoofdstukken)',
- 'log_no_active_chapters': 'Download niet gestart: er zijn geen ingeschakelde hoofdstukken in de wachtrij '
-                           'die nog niet aanwezig zijn.',
+ 'log_no_active_chapters': 'Download niet gestart: er zijn geen ingeschakelde hoofdstukken in de wachtrij die nog niet '
+                           'aanwezig zijn.',
  'log_no_images': 'Geen afbeeldingen gevonden: {title}',
  'log_output_dir_changed': 'Doelmap gewijzigd: {path}',
  'log_output_hidden': 'Logpaneel verborgen.',
@@ -184,8 +181,8 @@ TEXT = {'accent': 'Accentkleur',
  'log_pdf_saved': 'PDF opgeslagen: {path}',
  'log_queue_cleared': 'Wachtrij geleegd: {count} item(s) verwijderd.',
  'log_queue_large_optimized': 'Grote wachtrij gedetecteerd ({rows} rijen). Inline-vervolgkeuzelijsten zijn '
-                              'uitgeschakeld voor betere prestaties; instellingen kunnen nog steeds worden '
-                              'gewijzigd via rechtermuisklik/Instellingen.',
+                              'uitgeschakeld voor betere prestaties; instellingen kunnen nog steeds worden gewijzigd '
+                              'via rechtermuisklik/Instellingen.',
  'log_queue_load_failed': 'Kon wachtrij niet laden: {path} ({error})',
  'log_queue_load_skipped': '{count} ongeldige wachtrij-items overgeslagen.',
  'log_queue_load_started': 'Wachtrij laden: {path}',
@@ -199,8 +196,8 @@ TEXT = {'accent': 'Accentkleur',
  'log_style_fallback': "Terugvallen op leesstijl '{style}'.",
  'log_style_low_count': "Slechts {count} bruikbare afbeeldings-URL's met {style}; terugval wordt geprobeerd.",
  'log_theme_applied': 'Uiterlijk toegepast: {theme}',
- 'log_try_chapter_page': 'Geen bruikbare afbeeldingen gevonden op /images; de hoofdstukpagina wordt '
-                         'rechtstreeks geprobeerd.',
+ 'log_try_chapter_page': 'Geen bruikbare afbeeldingen gevonden op /images; de hoofdstukpagina wordt rechtstreeks '
+                         'geprobeerd.',
  'manga_directory': 'Mangamap',
  'manga_list_action_no_selection': 'Er is geen manga ingeschakeld voor deze actie.',
  'manga_list_check_all': 'Alles aanvinken',
@@ -214,8 +211,8 @@ TEXT = {'accent': 'Accentkleur',
  'manga_list_download_now': 'Nu downloaden',
  'manga_list_empty': "Nog geen manga's gevonden in de doelmap.",
  'manga_list_header_toggle_hint': 'Klik om alle manga in deze kolom in of uit te schakelen.',
- 'manga_list_hint': "Kies welke manga's op updates worden gecontroleerd en automatisch worden gedownload. "
-                    "Alleen aangevinkte manga's worden door de automatische functies verwerkt.",
+ 'manga_list_hint': "Kies welke manga's op updates worden gecontroleerd en automatisch worden gedownload. Alleen "
+                    "aangevinkte manga's worden door de automatische functies verwerkt.",
  'menu_auto_add': 'Toevoegen aan auto-update',
  'menu_auto_added': "'{title}' toegevoegd aan auto-update.",
  'menu_auto_remove': 'Verwijderen uit auto-update',
@@ -223,12 +220,44 @@ TEXT = {'accent': 'Accentkleur',
  'menu_change_cover': 'Omslag wijzigen',
  'menu_delete': 'Verwijderen',
  'menu_favorite': 'Als favoriet markeren',
- 'menu_mark_read': 'Als gelezen markeren',
- 'menu_mark_unread': 'Als ongelezen markeren',
  'menu_open_source': 'Bronpagina openen',
  'menu_rename': 'Naam wijzigen',
  'menu_unfavorite': 'Favoriet verwijderen',
  'metadata_write_failed': 'Kon metadata voor {title} niet schrijven: {error}',
+ 'mobile_error_conflict': 'De wijziging conflicteert met een bestaand bestand of manga.',
+ 'mobile_error_internal': 'De aanvraag kon niet worden voltooid.',
+ 'mobile_error_invalid_request': 'De aanvraag is ongeldig.',
+ 'mobile_error_local_only': 'Toegang is alleen toegestaan vanaf het lokale/privénetwerk.',
+ 'mobile_error_not_found': 'Het gevraagde item is niet gevonden.',
+ 'mobile_error_write_rejected': 'De schrijfactie is geweigerd.',
+ 'mobile_reader_action_failed': 'Actie mislukt: {error}',
+ 'mobile_reader_addresses': 'Open een van deze adressen op de telefoon:',
+ 'mobile_reader_description': 'Lees je MangoDango-bibliotheek op een telefoon of tablet in hetzelfde '
+                              'wifi-/LAN-netwerk. De mobiele interface bevat bibliotheek, hoofdstukkenlijst, lezer en '
+                              'mangabeheermenu, maar geen downloader.',
+ 'mobile_reader_enable': 'Mobiele lezer op het lokale netwerk inschakelen',
+ 'mobile_reader_enable_hint': 'Start een webbibliotheek met mangalezer voor telefoons en tablets op hetzelfde lokale '
+                              'netwerk.',
+ 'mobile_reader_host': 'Bind-IP-adres',
+ 'mobile_reader_host_hint': 'Gebruik 0.0.0.0 om op alle lokale IPv4-interfaces te luisteren, of voer een specifiek '
+                            'lokaal IPv4-adres van deze computer in.',
+ 'mobile_reader_hostname_hint': 'Als het netwerk dit ondersteunt, is MangoDango ook bereikbaar via '
+                                'http://mangodango.local. Een openbaar adres zoals mangodango.de vereist '
+                                'DNS-configuratie en kan niet alleen door de app worden aangemaakt.',
+ 'mobile_reader_invalid_host': 'Ongeldig IP-adres voor de mobiele lezer: {host}',
+ 'mobile_reader_ipv4_only': 'De mobiele lezer ondersteunt momenteel alleen IPv4-bindadressen.',
+ 'mobile_reader_no_address': 'Er is nog geen privé-LAN-adres gedetecteerd. Controleer of de computer en telefoon met '
+                             'hetzelfde netwerk verbonden zijn.',
+ 'mobile_reader_pages_ready': 'Alle hoofdstukpagina’s zijn gereed.',
+ 'mobile_reader_port': 'Poort',
+ 'mobile_reader_port_hint': 'TCP-poort voor de lokale mobiele lezer. Standaard: 8765.',
+ 'mobile_reader_preloading_pages': 'Pagina’s vooraf laden… {done}/{total}',
+ 'mobile_reader_security_hint': 'De mobiele lezer accepteert alleen lokale/privénetwerkapparaten en heeft geen '
+                                'wachtwoord. Stuur deze poort niet door naar het openbare internet.',
+ 'mobile_reader_start_failed': 'Mobiele lezer kon niet worden gestart: {error}',
+ 'mobile_reader_started': 'Mobiele lezer gestart: {url}',
+ 'mobile_reader_started_local_only': 'Mobiele lezer gestart op poort {port}, maar er kon geen LAN-adres worden '
+                                     'gedetecteerd.',
  'mode_cbz': 'CBZ per hoofdstuk',
  'mode_cbz_pdf': 'CBZ + PDF',
  'mode_images': 'Afbeeldingen in mappen',
@@ -276,8 +305,6 @@ TEXT = {'accent': 'Accentkleur',
  'queue_default_file': 'mangodango_queue.json',
  'queue_empty': 'De wachtrij is leeg.',
  'queue_filter': 'MangoDango-wachtrijen (*.json *.mangodango);;JSON-bestanden (*.json)',
- 'read_marked': "'{title}' als gelezen gemarkeerd.",
- 'read_unmarked': "'{title}' als ongelezen gemarkeerd.",
  'reader': 'Lezer',
  'reader_chapter': 'Hoofdstuk',
  'reader_close': 'Sluiten',
@@ -307,9 +334,7 @@ TEXT = {'accent': 'Accentkleur',
  'reader_start_continue_unavailable': 'Er is nog geen opgeslagen leespositie voor deze manga.',
  'reader_start_latest': 'Nieuwste hoofdstuk',
  'reader_start_text': 'Waar wil je {manga} openen?',
- 'reader_start_text_with_continue': 'Waar wil je {manga} openen?\n'
-                                    '\n'
-                                    'Opgeslagen positie: {chapter}, pagina {page}.',
+ 'reader_start_text_with_continue': 'Waar wil je {manga} openen?\n\nOpgeslagen positie: {chapter}, pagina {page}.',
  'reader_start_title': 'Leesbegin kiezen',
  'reader_title': 'Mangalezer',
  'reader_zoom_reset': 'Zoom resetten {zoom}%',
@@ -327,8 +352,8 @@ TEXT = {'accent': 'Accentkleur',
  'rename_prompt': 'Nieuwe naam:',
  'request_delay': 'Pauze per hoofdstuk',
  'reset': 'Resetten',
- 'reset_confirm': 'MangoDango-instellingen, wachtrijstatus en tijdelijke bestanden van deze computer '
-                  'verwijderen? Downloads worden niet verwijderd.',
+ 'reset_confirm': 'MangoDango-instellingen, wachtrijstatus en tijdelijke bestanden van deze computer verwijderen? '
+                  'Downloads worden niet verwijderd.',
  'reset_done': 'Resetten voltooid.',
  'reset_theme': 'Resetten',
  'reset_themes': "Thema's resetten",
@@ -372,6 +397,7 @@ TEXT = {'accent': 'Accentkleur',
  'settings_tab_general': 'Algemeen',
  'settings_tab_help': 'Help',
  'settings_tab_manga_list': 'Mangalijst',
+ 'settings_tab_mobile_reader': 'Mobiele lezer',
  'status_closing': 'Afsluiten… wachten tot actieve taken klaar zijn.',
  'status_done': 'Klaar',
  'status_failed': 'Mislukt',
@@ -406,17 +432,16 @@ TEXT = {'accent': 'Accentkleur',
  'updates_canceling': 'Update-controle annuleren…',
  'updates_check_failed': 'Update-controle mislukt voor {title}: {error}',
  'updates_checking_manga': 'Controleren: {title}',
- 'updates_dialog_message': '{count} nieuw(e) hoofdstuk(ken) gevonden. Kies wat aan de wachtrij moet worden '
-                           'toegevoegd.',
+ 'updates_dialog_message': '{count} nieuw(e) hoofdstuk(ken) gevonden. Kies wat aan de wachtrij moet worden toegevoegd.',
  'updates_dialog_title': 'Nieuwe hoofdstukken gevonden',
  'updates_dismissed': 'Update-resultaten genegeerd.',
  'updates_download_after_add': 'Download starten na toevoegen',
  'updates_found_for_manga': 'Nieuwe hoofdstukken gevonden voor {title}: {count}',
  'updates_new_chapters': '{count} nieuw(e) hoofdstuk(ken)',
- 'updates_no_downloadable_chapters': 'De gevonden hoofdstukken staan al volledig op schijf of zijn '
-                                     'uitgeschakeld; er is geen download gestart.',
- 'updates_no_metadata': 'Er zijn geen MangoDango-metadatabestanden gevonden. Een manga kan automatisch '
-                        'worden gecontroleerd nadat deze één keer met deze versie is gedownload.',
+ 'updates_no_downloadable_chapters': 'De gevonden hoofdstukken staan al volledig op schijf of zijn uitgeschakeld; er '
+                                     'is geen download gestart.',
+ 'updates_no_metadata': 'Er zijn geen MangoDango-metadatabestanden gevonden. Een manga kan automatisch worden '
+                        'gecontroleerd nadat deze één keer met deze versie is gedownload.',
  'updates_no_selection': 'Er zijn geen update-hoofdstukken geselecteerd.',
  'updates_none_for_manga': 'Geen nieuwe hoofdstukken gevonden voor {title}.',
  'updates_none_found': 'Er zijn geen nieuwe hoofdstukken gevonden.',

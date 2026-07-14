@@ -1,25 +1,23 @@
-# -*- coding: utf-8 -*-
 TEXT = {'accent': 'Kiemelőszín',
  'add_to_queue': 'Hozzáadás a sorhoz',
  'all_files_filter': 'Minden fájl (*)',
  'app_settings_button': 'Beállítások',
  'app_settings_title': 'Beállítások',
  'app_title': 'MangoDango',
- 'appearance_hint': 'Válassz egy javasolt témát, vagy adj meg saját színeket. A saját színek témaként '
-                    'menthetők, és később újra kiválaszthatók.',
+ 'appearance_hint': 'Válassz egy javasolt témát, vagy adj meg saját színeket. A saját színek témaként menthetők, és '
+                    'később újra kiválaszthatók.',
  'apply': 'Alkalmaz',
  'apply_to_children': 'Alkalmazás az összes alábbi fejezetre',
  'auto_download_updates': 'Új fejezetek automatikus letöltése',
- 'auto_download_updates_hint': 'Az újonnan talált fejezetek automatikus letöltése, miután bekerültek a '
-                               'sorba.',
+ 'auto_download_updates_hint': 'Az újonnan talált fejezetek automatikus letöltése, miután bekerültek a sorba.',
  'automation_add': 'Hozzáadás',
  'automation_day': 'Nap',
  'automation_disabled_log': 'Automatizálás letiltva.',
  'automation_enable': 'Automatizálás engedélyezése',
  'automation_enabled_log': 'Automatizálás engedélyezve: {count} időpont.',
- 'automation_hint': 'Ha engedélyezve van, a MangoDango a lent megadott napokon és időpontokban ellenőrzi a '
-                    'célmappát új fejezetekért. Ha az automatikus letöltés be van kapcsolva, az új fejezetek '
-                    'azonnal letöltődnek.',
+ 'automation_hint': 'Ha engedélyezve van, a MangoDango a lent megadott napokon és időpontokban ellenőrzi a célmappát '
+                    'új fejezetekért. Ha az automatikus letöltés be van kapcsolva, az új fejezetek azonnal '
+                    'letöltődnek.',
  'automation_remove': 'Eltávolítás',
  'automation_schedule': 'Ütemezés',
  'automation_slot_label': '{day} {time}-kor',
@@ -28,8 +26,8 @@ TEXT = {'accent': 'Kiemelőszín',
  'cancel': 'Mégse',
  'chapter_fallback': '{number}. fejezet',
  'check_updates_on_startup': 'Új fejezetek keresése indításkor',
- 'check_updates_on_startup_hint': 'Indításkor olvassa be a MangoDango metaadatokat a célmappában, és '
-                                  'keressen új fejezeteket a WeebCentralon.',
+ 'check_updates_on_startup_hint': 'Indításkor olvassa be a MangoDango metaadatokat a célmappában, és keressen új '
+                                  'fejezeteket a WeebCentralon.',
  'choose_color': 'Szín választása',
  'choose_dir': 'Mappa kiválasztása',
  'choose_folder': 'Mappa választása…',
@@ -103,13 +101,12 @@ TEXT = {'accent': 'Kiemelőszín',
  'help_update_checking': 'A legújabb kiadás keresése a GitHubon…',
  'help_update_downloading': 'Újabb kiadás található. A frissítés letöltése…',
  'help_update_failed': 'A frissítés ellenőrzése sikertelen: {error}',
- 'help_update_hint': 'Ellenőrzi a hivatalos GitHub-adattárat újabb kiadásért, és automatikusan telepítheti '
-                     'azt.',
+ 'help_update_hint': 'Ellenőrzi a hivatalos GitHub-adattárat újabb kiadásért, és automatikusan telepítheti azt.',
  'help_update_install_failed': 'A frissítés előkészítése sikertelen: {error}',
  'help_update_latest': 'A MangoDango naprakész. Legújabb kiadási verzió: {version}.',
  'help_update_ready': 'A(z) {version} verzió letöltődött, és telepítésre kész.',
- 'help_update_restart_question': 'A(z) {version} verzió letöltődött. Kilépés a MangoDangóból, a frissítés '
-                                 'telepítése és újraindítás most?',
+ 'help_update_restart_question': 'A(z) {version} verzió letöltődött. Kilépés a MangoDangóból, a frissítés telepítése '
+                                 'és újraindítás most?',
  'help_update_restarting': 'A(z) {version} verzió telepítése. A MangoDango újraindul…',
  'help_update_title': 'MangoDango-frissítés',
  'home_weebcentral': 'WeebCentral',
@@ -159,8 +156,7 @@ TEXT = {'accent': 'Kiemelőszín',
  'log_download_resumed': 'Letöltés folytatva: {count} hátralévő fejezet, cél: {path}',
  'log_download_started': 'Letöltés indítva: {count} fejezet, cél: {path}',
  'log_download_stop_requested': 'Leállítás kérve; az aktív képletöltések előbb befejeződnek.',
- 'log_download_stopped_after_active': 'Letöltés leállítva; az aktív képletöltések biztonságosan '
-                                      'befejeződtek.',
+ 'log_download_stopped_after_active': 'Letöltés leállítva; az aktív képletöltések biztonságosan befejeződtek.',
  'log_duplicate': 'Már létezik: {url}',
  'log_existing_chapter_skipped': 'Már a lemezen, kihagyva: {manga} — {chapter}',
  'log_existing_chapters_detected': 'Már a lemezen ehhez: {title}: {count} fejezet.',
@@ -170,20 +166,19 @@ TEXT = {'accent': 'Kiemelőszín',
  'log_images_found': '{count} kép található.',
  'log_images_removed': 'Képmappa eltávolítva: {title} — {path}',
  'log_language_set': 'Nyelv beállítva: {language}',
- 'log_large_queue_disk_scan_skipped': 'Nagy sor betöltve ({rows} sor). Az azonnali lemezvizsgálat kihagyva, '
-                                      'hogy a sor gyorsan betöltődjön; a letöltés előtt újra ellenőrizve '
-                                      'lesz.',
+ 'log_large_queue_disk_scan_skipped': 'Nagy sor betöltve ({rows} sor). Az azonnali lemezvizsgálat kihagyva, hogy a sor '
+                                      'gyorsan betöltődjön; a letöltés előtt újra ellenőrizve lesz.',
  'log_merged_manga': 'Manga frissítve: {title} ({count} új fejezet)',
- 'log_no_active_chapters': 'A letöltés nem indult el: a sorban nincsenek olyan engedélyezett fejezetek, '
-                           'amelyek még nem léteznek.',
+ 'log_no_active_chapters': 'A letöltés nem indult el: a sorban nincsenek olyan engedélyezett fejezetek, amelyek még '
+                           'nem léteznek.',
  'log_no_images': 'Nem található kép: {title}',
  'log_output_dir_changed': 'Célmappa módosítva: {path}',
  'log_output_hidden': 'Naplópanel elrejtve.',
  'log_output_shown': 'Naplópanel megjelenítve.',
  'log_pdf_saved': 'PDF mentve: {path}',
  'log_queue_cleared': 'Várólista törölve: {count} elem eltávolítva.',
- 'log_queue_large_optimized': 'Nagy sor észlelve ({rows} sor). A beágyazott legördülő menük a jobb '
-                              'teljesítmény érdekében letiltva; a beállítások továbbra is módosíthatók jobb '
+ 'log_queue_large_optimized': 'Nagy sor észlelve ({rows} sor). A beágyazott legördülő menük a jobb teljesítmény '
+                              'érdekében letiltva; a beállítások továbbra is módosíthatók jobb '
                               'kattintással/Beállítások.',
  'log_queue_load_failed': 'A sort nem sikerült betölteni: {path} ({error})',
  'log_queue_load_skipped': '{count} érvénytelen sorbejegyzés kihagyva.',
@@ -198,8 +193,7 @@ TEXT = {'accent': 'Kiemelőszín',
  'log_style_fallback': "Visszaállás a(z) '{style}' olvasási stílusra.",
  'log_style_low_count': 'Csak {count} használható kép-URL a(z) {style} stílussal; tartalék próbálkozás.',
  'log_theme_applied': 'Megjelenés alkalmazva: {theme}',
- 'log_try_chapter_page': 'Nem található használható kép a /images oldalon; közvetlenül a fejezetoldal '
-                         'próbálkozása.',
+ 'log_try_chapter_page': 'Nem található használható kép a /images oldalon; közvetlenül a fejezetoldal próbálkozása.',
  'manga_directory': 'Manga-könyvtár',
  'manga_list_action_no_selection': 'Ehhez a művelethez nincs engedélyezett manga.',
  'manga_list_check_all': 'Összes ellenőrzése',
@@ -213,8 +207,8 @@ TEXT = {'accent': 'Kiemelőszín',
  'manga_list_download_now': 'Letöltés most',
  'manga_list_empty': 'A célmappában még nincsenek mangák.',
  'manga_list_header_toggle_hint': 'Kattintással engedélyezheti vagy letilthatja az oszlop összes mangáját.',
- 'manga_list_hint': 'Válaszd ki, mely mangákat ellenőrizze a program frissítésekért és töltse le '
-                    'automatikusan. Az automatikus funkciók csak a bejelölt mangákat dolgozzák fel.',
+ 'manga_list_hint': 'Válaszd ki, mely mangákat ellenőrizze a program frissítésekért és töltse le automatikusan. Az '
+                    'automatikus funkciók csak a bejelölt mangákat dolgozzák fel.',
  'menu_auto_add': 'Hozzáadás az automatikus frissítéshez',
  'menu_auto_added': "'{title}' hozzáadva az automatikus frissítéshez.",
  'menu_auto_remove': 'Eltávolítás az automatikus frissítésből',
@@ -222,12 +216,43 @@ TEXT = {'accent': 'Kiemelőszín',
  'menu_change_cover': 'Borító módosítása',
  'menu_delete': 'Törlés',
  'menu_favorite': 'Megjelölés kedvencként',
- 'menu_mark_read': 'Megjelölés olvasottként',
- 'menu_mark_unread': 'Megjelölés olvasatlanként',
  'menu_open_source': 'Forrásoldal megnyitása',
  'menu_rename': 'Átnevezés',
  'menu_unfavorite': 'Kedvenc eltávolítása',
  'metadata_write_failed': 'Nem sikerült metaadatokat írni ehhez: {title}: {error}',
+ 'mobile_error_conflict': 'A módosítás ütközik egy meglévő fájllal vagy mangával.',
+ 'mobile_error_internal': 'A kérést nem sikerült befejezni.',
+ 'mobile_error_invalid_request': 'A kérés érvénytelen.',
+ 'mobile_error_local_only': 'A hozzáférés csak a helyi/privát hálózatról engedélyezett.',
+ 'mobile_error_not_found': 'A kért elem nem található.',
+ 'mobile_error_write_rejected': 'Az írási kérés elutasításra került.',
+ 'mobile_reader_action_failed': 'A művelet sikertelen: {error}',
+ 'mobile_reader_addresses': 'Nyisd meg az alábbi címek egyikét a telefonon:',
+ 'mobile_reader_description': 'Olvasd a MangoDango könyvtáradat telefonon vagy táblagépen ugyanazon a Wi-Fi/LAN '
+                              'hálózaton. A mobilfelület tartalmazza a könyvtárat, a fejezetlistát, az olvasót és a '
+                              'mangakezelő menüt, de letöltőt nem.',
+ 'mobile_reader_enable': 'Mobil olvasó engedélyezése a helyi hálózaton',
+ 'mobile_reader_enable_hint': 'Webes könyvtárat indít mangaolvasóval az ugyanazon helyi hálózaton lévő telefonokhoz és '
+                              'táblagépekhez.',
+ 'mobile_reader_host': 'Kötési IP-cím',
+ 'mobile_reader_host_hint': 'A 0.0.0.0 használatával minden helyi IPv4-felületen figyel, vagy megadhatod ennek a '
+                            'számítógépnek egy konkrét helyi IPv4-címét.',
+ 'mobile_reader_hostname_hint': 'Ha a hálózat támogatja, a MangoDango a http://mangodango.local címen is elérhető. Egy '
+                                'nyilvános cím, például a mangodango.de, DNS-beállítást igényel, és az alkalmazás '
+                                'önmagában nem tudja létrehozni.',
+ 'mobile_reader_invalid_host': 'Érvénytelen IP-cím a mobil olvasóhoz: {host}',
+ 'mobile_reader_ipv4_only': 'A mobil olvasó jelenleg csak IPv4 kötési címeket támogat.',
+ 'mobile_reader_no_address': 'Még nem sikerült privát LAN-címet észlelni. Győződj meg róla, hogy a számítógép és a '
+                             'telefon ugyanahhoz a hálózathoz csatlakozik.',
+ 'mobile_reader_pages_ready': 'A fejezet összes oldala készen áll.',
+ 'mobile_reader_port': 'Port',
+ 'mobile_reader_port_hint': 'A helyi mobil olvasó TCP-portja. Alapértelmezett: 8765.',
+ 'mobile_reader_preloading_pages': 'Oldalak előtöltése… {done}/{total}',
+ 'mobile_reader_security_hint': 'A mobil olvasó csak helyi/privát hálózati eszközöket fogad, és nincs jelszava. Ne '
+                                'továbbítsd ezt a portot a nyilvános internetre.',
+ 'mobile_reader_start_failed': 'A mobil olvasó nem indítható el: {error}',
+ 'mobile_reader_started': 'Mobil olvasó elindítva: {url}',
+ 'mobile_reader_started_local_only': 'A mobil olvasó elindult a(z) {port} porton, de nem sikerült LAN-címet észlelni.',
  'mode_cbz': 'CBZ fejezetenként',
  'mode_cbz_pdf': 'CBZ + PDF',
  'mode_images': 'Képek mappákban',
@@ -275,8 +300,6 @@ TEXT = {'accent': 'Kiemelőszín',
  'queue_default_file': 'mangodango_queue.json',
  'queue_empty': 'A sor üres.',
  'queue_filter': 'MangoDango sorok (*.json *.mangodango);;JSON fájlok (*.json)',
- 'read_marked': "'{title}' olvasottként megjelölve.",
- 'read_unmarked': "'{title}' olvasatlanként megjelölve.",
  'reader': 'Olvasó',
  'reader_chapter': 'Fejezet',
  'reader_close': 'Bezárás',
@@ -291,8 +314,8 @@ TEXT = {'accent': 'Kiemelőszín',
  'reader_mode_strip_double': 'Hosszú sáv dupla oldalakkal',
  'reader_mode_strip_single': 'Hosszú sáv',
  'reader_next': 'Következő',
- 'reader_no_pages': 'Nem találhatók helyileg mentett mangaoldalak. Először tölts le fejezeteket képmappaként '
-                    'vagy CBZ-ként.',
+ 'reader_no_pages': 'Nem találhatók helyileg mentett mangaoldalak. Először tölts le fejezeteket képmappaként vagy '
+                    'CBZ-ként.',
  'reader_no_selection': 'Először válassz egy mangát vagy fejezetet.',
  'reader_page': 'Oldal',
  'reader_page_info': '{manga} — {chapter} · {page}/{pages}. oldal · Összesen {current}/{total}',
@@ -326,8 +349,8 @@ TEXT = {'accent': 'Kiemelőszín',
  'rename_prompt': 'Új név:',
  'request_delay': 'Szünet fejezetenként',
  'reset': 'Visszaállítás',
- 'reset_confirm': 'Törlöd a MangoDango beállításait, a sor állapotát és az ideiglenes fájlokat erről a '
-                  'számítógépről? A letöltések nem törlődnek.',
+ 'reset_confirm': 'Törlöd a MangoDango beállításait, a sor állapotát és az ideiglenes fájlokat erről a számítógépről? '
+                  'A letöltések nem törlődnek.',
  'reset_done': 'Visszaállítás befejezve.',
  'reset_theme': 'Visszaállítás',
  'reset_themes': 'Témák visszaállítása',
@@ -371,6 +394,7 @@ TEXT = {'accent': 'Kiemelőszín',
  'settings_tab_general': 'Általános',
  'settings_tab_help': 'Súgó',
  'settings_tab_manga_list': 'Manga-lista',
+ 'settings_tab_mobile_reader': 'Mobil olvasó',
  'status_closing': 'Bezárás… várakozás az aktív feladatok befejezésére.',
  'status_done': 'Kész',
  'status_failed': 'Sikertelen',
@@ -410,10 +434,10 @@ TEXT = {'accent': 'Kiemelőszín',
  'updates_download_after_add': 'Letöltés indítása hozzáadás után',
  'updates_found_for_manga': 'Új fejezetek találhatók ehhez: {title}: {count}',
  'updates_new_chapters': '{count} új fejezet',
- 'updates_no_downloadable_chapters': 'A talált fejezetek már teljesek a lemezen vagy le vannak tiltva; nem '
-                                     'indult letöltés.',
- 'updates_no_metadata': 'Nem találhatók MangoDango metaadatfájlok. Egy manga automatikusan ellenőrizhető, '
-                        'miután egyszer letöltötted ezzel a verzióval.',
+ 'updates_no_downloadable_chapters': 'A talált fejezetek már teljesek a lemezen vagy le vannak tiltva; nem indult '
+                                     'letöltés.',
+ 'updates_no_metadata': 'Nem találhatók MangoDango metaadatfájlok. Egy manga automatikusan ellenőrizhető, miután '
+                        'egyszer letöltötted ezzel a verzióval.',
  'updates_no_selection': 'Nem lettek kiválasztva frissítési fejezetek.',
  'updates_none_for_manga': 'Nem találhatók új fejezetek ehhez: {title}.',
  'updates_none_found': 'Nem találhatók új fejezetek.',

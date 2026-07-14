@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#171a1f">
+<title>MangoDango</title>
+<link rel="stylesheet" href="/assets/app.css">
+
+</head>
+<body>
+<header class="topbar">
+  <button id="backButton" class="iconbtn hidden" aria-label="Back">‹</button>
+  <button id="homeBrand" class="brand" type="button" aria-label="MangoDango"><span class="brandmark" aria-hidden="true"></span><span class="brandname"><span class="mango">Mango</span><span class="dango">Dango</span></span></button>
+  <button id="refreshButton" class="iconbtn" aria-label="Refresh">↻</button>
+</header>
+
+<main id="libraryView">
+  <section class="hero"><h1 id="libraryHeroTitle">Library</h1></section>
+  <div class="toolbar"><input id="searchInput" class="search" type="search" autocomplete="off"><select id="sortSelect" class="select"><option id="sortLatest" value="latest"></option><option id="sortAz" value="az">A–Z</option><option id="sortFavorites" value="favorites"></option></select></div>
+  <div id="libraryGrid" class="grid"></div>
+  <div id="libraryEmpty" class="empty hidden"></div>
+</main>
+
+<main id="mangaView" class="hidden">
+  <section id="mangaHeader" class="detailhead"></section>
+  <div id="chapterList" class="chapterlist"></div>
+</main>
+
+<section id="readerView" class="reader-shell hidden">
+  <div class="readerbar"><div class="readerlabel"><div id="readerTitle" class="readertitle"></div><div id="readerSub" class="readersub"></div></div><select id="modeSelect" class="mode-select"><option id="modeStrip" value="strip"></option><option id="modeSingle" value="single"></option><option id="modeDouble" value="double"></option></select></div>
+  <div id="pages" class="pages strip"></div>
+  <div class="readercontrols"><button id="prevPage" class="iconbtn" aria-label="Previous">‹</button><div id="pageCounter" class="pagecounter">0 / 0</div><button id="nextPage" class="iconbtn" aria-label="Next">›</button></div>
+</section>
+
+<div id="toast" class="toast"></div>
+<div id="loadingOverlay" class="loadingbackdrop hidden"><div class="loadingcard"><div id="loadingText" class="loadingtitle"></div><div class="progressbar"><div id="loadingProgress" class="progressfill"></div></div></div></div>
+<div id="mangaMenu" class="sheetbackdrop hidden"><div class="sheet"><div id="mangaMenuTitle" class="sheettitle"></div><div id="mangaMenuActions" class="sheetactions"></div><button id="mangaMenuCancel" class="sheetaction sheetcancel"></button></div></div>
+<input id="coverFile" class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif">
+
+<script src="/assets/app.js" defer></script>
+
+</body>
+</html>

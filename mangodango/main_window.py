@@ -60,6 +60,14 @@ from .constants import (
 from .i18n import SUPPORTED_LANGUAGES, TranslatableText, Translator, language_label, normalize_language, tr_message
 from .automation import AutomationSchedule
 from .models import ChapterEntry, ItemSettings, MangaEntry
+from .reading_state import ReadingStateStore, manga_id_for_path
+from .mobile_server import (
+    DEFAULT_MOBILE_READER_HOST,
+    DEFAULT_MOBILE_READER_PORT,
+    MobileLibraryServer,
+    MobileReaderConfigurationError,
+    mobile_reader_urls,
+)
 from .scraper import IMAGE_EXTENSIONS, chapter_exists_on_disk, chapter_sort_key, natural_sort_key, normalize_weebcentral_url, read_manga_metadata_dir, sanitize_filename, write_manga_metadata, write_manga_metadata_dir
 from .ui.dialogs import AppSettingsDialog, BusyProgressDialog, ItemSettingsDialog, MangaReaderDialog, PreferencesDialog, UpdateResultsDialog, localized_question, localized_text_input
 from .ui.styles import ThemeSettings, apply_theme
@@ -196,6 +204,7 @@ class LibraryCard(QFrame):
         super().mousePressEvent(event)
 
 
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -222,7 +231,15 @@ class MainWindow(QMainWindow):
         self._closing = False
         self._await_close_timer: QTimer | None = None
         self._library_entries: list[dict] | None = None
+        self._library_cards_by_id: dict[str, LibraryCard] = {}
         self._library_dirty: bool = True
+        self._reading_store: ReadingStateStore | None = None
+        self._reading_store_root: Path | None = None
+        self._mobile_server: MobileLibraryServer | None = None
+        self._mobile_reader_enabled: bool = False
+        self._mobile_reader_port: int = DEFAULT_MOBILE_READER_PORT
+        self._mobile_reader_host: str = DEFAULT_MOBILE_READER_HOST
+        self._mobile_reader_last_error: str = ""
         self.resolve_worker: ResolveWorker | None = None
         self.update_worker: UpdateCheckWorker | None = None
         self.download_worker: QueueDownloadWorker | None = None
@@ -300,6 +317,7 @@ class MainWindow(QMainWindow):
         # and cache an empty result.
         self._library_dirty = True
         self.show_library_view()
+        QTimer.singleShot(0, self._sync_mobile_reader_server)
         self.resize(1280, 820)
         QTimer.singleShot(0, self._log_startup_state)
         QTimer.singleShot(900, self.maybe_check_updates_on_startup)
@@ -618,6 +636,12 @@ class MainWindow(QMainWindow):
         self.keep_images.setChecked(str(self.settings.value("defaults/keep_images", "true")).lower() == "true")
         self.check_updates_on_startup.setChecked(str(self.settings.value("updates/check_on_startup", "false")).lower() == "true")
         self.auto_download_updates.setChecked(str(self.settings.value("updates/auto_download", "false")).lower() == "true")
+        self._mobile_reader_enabled = str(self.settings.value("mobile_reader/enabled", "false") or "false").lower() == "true"
+        try:
+            self._mobile_reader_port = max(1024, min(65535, int(self.settings.value("mobile_reader/port", DEFAULT_MOBILE_READER_PORT) or DEFAULT_MOBILE_READER_PORT)))
+        except (TypeError, ValueError):
+            self._mobile_reader_port = DEFAULT_MOBILE_READER_PORT
+        self._mobile_reader_host = str(self.settings.value("mobile_reader/host", DEFAULT_MOBILE_READER_HOST) or DEFAULT_MOBILE_READER_HOST).strip() or DEFAULT_MOBILE_READER_HOST
         self._set_combo_value_later = {
             "reading": str(self.settings.value("defaults/reading_style", "long_strip") or "long_strip"),
             "output": str(self.settings.value("defaults/output_mode", "images") or "images"),
@@ -652,6 +676,9 @@ class MainWindow(QMainWindow):
         self.settings.setValue("defaults/request_delay", self.delay.value())
         self.settings.setValue("library/sort_mode", self.library_sort_mode())
         self.settings.setValue("automation/schedule", self.automation.to_json())
+        self.settings.setValue("mobile_reader/enabled", "true" if self._mobile_reader_enabled else "false")
+        self.settings.setValue("mobile_reader/port", int(self._mobile_reader_port))
+        self.settings.setValue("mobile_reader/host", self._mobile_reader_host)
         self.settings.setValue("ui/language", self.language)
         theme = self.theme.normalized()
         self.settings.setValue("ui/theme", theme.mode)
@@ -884,6 +911,82 @@ class MainWindow(QMainWindow):
         chapters.sort(key=lambda entry: chapter_sort_key(entry[0]))
         return chapters[-1]
 
+    def _reading_state_store(self) -> ReadingStateStore:
+        root = Path(self.current_output_dir()).expanduser()
+        if self._reading_store is None or self._reading_store_root != root:
+            self._reading_store = ReadingStateStore(root)
+            self._reading_store_root = root
+        return self._reading_store
+
+    def _library_info_for_manga(self, manga: MangaEntry) -> dict | None:
+        for info in self._library_entries or []:
+            if manga.url and str(info.get("url") or "") == manga.url:
+                return info
+            if str(info.get("title") or "").strip().casefold() == manga.title.strip().casefold():
+                return info
+        return None
+
+    @staticmethod
+    def _latest_chapter_is_read(reading: dict, latest_title: str, latest_pages: int) -> bool:
+        """Return True only when the final page of the current newest chapter was read."""
+        if not reading or not latest_title or latest_pages <= 0:
+            return False
+        saved_title = str(reading.get("chapter_title") or "").strip().casefold()
+        if saved_title != str(latest_title).strip().casefold():
+            return False
+        try:
+            raw_page_index = reading.get("page_index", -1)
+            page_index = int(raw_page_index if raw_page_index is not None else -1)
+        except (TypeError, ValueError):
+            return False
+        return page_index >= latest_pages - 1
+
+    def _update_cached_library_card(self, info: dict) -> None:
+        manga_id = str(info.get("manga_id") or "")
+        card = self._library_cards_by_id.get(manga_id)
+        if card is None:
+            return
+        read_marker = "✓ " if info.get("latest_read") else ""
+        card.set_title(read_marker + str(info.get("title") or ""))
+        card.set_info(
+            self.tr(
+                "library_card_meta",
+                chapters=info.get("chapters", 0),
+                last=info.get("last_chapter", ""),
+            )
+        )
+        card.set_favorite(bool(info.get("favorite")))
+
+    def _refresh_library_reading_state_only(self, manga_id: str = "") -> None:
+        """Update shared reading progress without rescanning or rebuilding the library.
+
+        Returning from the reader changes only progress. Updating the one
+        affected card in-place avoids both the filesystem scan and rebuilding all
+        cover widgets, which keeps large libraries responsive.
+        """
+        if self._library_entries is None:
+            return
+        store = self._reading_state_store()
+        candidates = self._library_entries
+        if manga_id:
+            candidates = [info for info in self._library_entries if str(info.get("manga_id") or "") == manga_id]
+        for info in candidates:
+            entry_id = str(info.get("manga_id") or manga_id_for_path(info["path"]))
+            reading = store.get(
+                entry_id,
+                path=Path(info["path"]),
+                title=str(info.get("title") or ""),
+                source_url=str(info.get("url") or ""),
+            ) or {}
+            info["reading"] = reading
+            info["last_read_at"] = float(reading.get("updated_at", 0) or 0)
+            info["latest_read"] = self._latest_chapter_is_read(
+                reading,
+                str(info.get("last_chapter") or ""),
+                int(info.get("last_pages", 0) or 0),
+            )
+            self._update_cached_library_card(info)
+
     def show_library_view(self) -> None:
         self.library_page.setVisible(True)
         self.downloader_page.setVisible(False)
@@ -912,6 +1015,7 @@ class MainWindow(QMainWindow):
         self.refresh_library_button.setVisible(False)
 
     def _clear_library_grid(self) -> None:
+        self._library_cards_by_id.clear()
         while self.library_grid.count():
             item = self.library_grid.takeAt(0)
             widget = item.widget()
@@ -976,27 +1080,6 @@ class MainWindow(QMainWindow):
             return 0.0
 
 
-    def _is_manga_read_complete(self, title: str, url: str = "") -> bool:
-        title_key = sanitize_filename(title, "manga").lower()
-        if title_key and str(self.settings.value(f"reader/completed/title/{title_key}", "false") or "false").lower() == "true":
-            return True
-        if url:
-            url_key = sanitize_filename(url, "manga").lower()
-            if url_key and str(self.settings.value(f"reader/completed/url/{url_key}", "false") or "false").lower() == "true":
-                return True
-        return False
-
-    def _set_manga_read_complete(self, title: str, url: str, complete: bool) -> None:
-        value = "true" if complete else "false"
-        title_key = sanitize_filename(title, "manga").lower()
-        if title_key:
-            self.settings.setValue(f"reader/completed/title/{title_key}", value)
-        if url:
-            url_key = sanitize_filename(url, "manga").lower()
-            if url_key:
-                self.settings.setValue(f"reader/completed/url/{url_key}", value)
-        self.settings.sync()
-
     @staticmethod
     def _flag(value, default: bool) -> bool:
         if value is None:
@@ -1013,7 +1096,8 @@ class MainWindow(QMainWindow):
             return []
 
         result: list[dict] = []
-        for manga_dir in sorted([item for item in root.iterdir() if item.is_dir()], key=lambda item: natural_sort_key(item.name)):
+        reading_store = self._reading_state_store()
+        for manga_dir in sorted([item for item in root.iterdir() if item.is_dir() and item.name != ".mangodango"], key=lambda item: natural_sort_key(item.name)):
             metadata = self._manga_dir_metadata(manga_dir)
             title = str(metadata.get("title") or manga_dir.name)
             url = str(metadata.get("url") or "")
@@ -1032,7 +1116,10 @@ class MainWindow(QMainWindow):
             if count <= 0:
                 continue
             last_chapter, last_pages = self._manga_last_chapter_info(manga_dir)
+            manga_id = manga_id_for_path(manga_dir)
+            reading = reading_store.get(manga_id, path=manga_dir, title=title, source_url=url) or {}
             result.append({
+                "manga_id": manga_id,
                 "title": title,
                 "url": url,
                 "path": manga_dir,
@@ -1040,7 +1127,9 @@ class MainWindow(QMainWindow):
                 "chapters": count,
                 "last_chapter": last_chapter,
                 "last_pages": last_pages,
-                "read_complete": self._is_manga_read_complete(title, url),
+                "reading": reading,
+                "latest_read": self._latest_chapter_is_read(reading, last_chapter, last_pages),
+                "last_read_at": float(reading.get("updated_at", 0) or 0),
                 "updated_at": metadata.get("updated_at", ""),
                 "updated_sort": self._library_updated_sort_value(manga_dir, metadata),
                 "favorite": self._flag(metadata.get("favorite"), False),
@@ -1065,6 +1154,8 @@ class MainWindow(QMainWindow):
         return entries
 
     def refresh_library(self) -> None:
+        if self._mobile_server is not None:
+            self._mobile_server.invalidate()
         # Full refresh: scan the disk, cache the result, then render. Toggling the
         # sort order afterwards reuses the cache instead of re-scanning the disk.
         self._library_entries = self.scan_library_mangas()
@@ -1085,13 +1176,15 @@ class MainWindow(QMainWindow):
         columns = 6
         for index, info in enumerate(mangas):
             card = LibraryCard(self._favorite_star_pixmap, self.tr("library_menu_tooltip"))
-            read_marker = "\u2713 " if info.get("read_complete") else ""
+            read_marker = "✓ " if info.get("latest_read") else ""
             card.set_title(read_marker + str(info["title"]))
-            card.set_info(self.tr(
-                "library_card_meta",
-                chapters=info["chapters"],
-                last=info.get("last_chapter", ""),
-            ))
+            card.set_info(
+                self.tr(
+                    "library_card_meta",
+                    chapters=info["chapters"],
+                    last=info.get("last_chapter", ""),
+                )
+            )
             card.setToolTip(self.tr(
                 "library_card_tooltip",
                 title=read_marker + str(info["title"]),
@@ -1107,6 +1200,7 @@ class MainWindow(QMainWindow):
                 card.set_cover(pixmap.scaled(QSize(168, 240), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
             card.set_favorite(bool(info.get("favorite")))
+            self._library_cards_by_id[str(info.get("manga_id") or "")] = card
             card.openRequested.connect(lambda data=info: self.open_library_manga(data))
             card.menuRequested.connect(lambda data=info, c=card: self.open_library_menu(data, c))
             row = index // columns
@@ -1119,7 +1213,7 @@ class MainWindow(QMainWindow):
         for col in range(columns):
             self.library_grid.setColumnStretch(col, 1)
 
-    def open_library_manga(self, info: dict) -> None:
+    def open_library_manga(self, info: dict, continue_direct: bool = False) -> None:
         title = str(info.get("title") or "")
         url = str(info.get("url") or "")
         manga = self._manga_from_disk(title, url, self.current_output_dir())
@@ -1127,9 +1221,13 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, self.tr("reader_title"), self.tr("reader_no_pages"))
             return
 
-        choice = self._ask_reader_start_choice(manga, self._saved_reader_position_for_manga(manga))
-        if choice is None:
-            return
+        saved_position = self._saved_reader_position_for_manga(manga)
+        if continue_direct and saved_position:
+            choice = self._reader_start_continue(saved_position)
+        else:
+            choice = self._ask_reader_start_choice(manga, saved_position)
+            if choice is None:
+                return
 
         start_chapter_id, start_chapter_title, start_page_index, start_global_index, start_after = choice
         self.open_reader_for_manga(
@@ -1139,17 +1237,16 @@ class MainWindow(QMainWindow):
             start_page_index=start_page_index,
             start_global_index=start_global_index,
             start_after=start_after,
+            manga_dir=Path(info["path"]),
         )
 
     def open_library_menu(self, info: dict, card) -> None:
         menu = QMenu(self)
         favorite = bool(info.get("favorite"))
-        read_done = bool(info.get("read_complete"))
         in_auto = bool(info.get("check_updates"))
 
         act_rename = menu.addAction(self.tr("menu_rename"))
         act_cover = menu.addAction(self.tr("menu_change_cover"))
-        act_read = menu.addAction(self.tr("menu_mark_unread") if read_done else self.tr("menu_mark_read"))
         act_fav = menu.addAction(self.tr("menu_unfavorite") if favorite else self.tr("menu_favorite"))
         act_auto = menu.addAction(self.tr("menu_auto_remove") if in_auto else self.tr("menu_auto_add"))
         act_source = menu.addAction(self.tr("menu_open_source"))
@@ -1164,8 +1261,6 @@ class MainWindow(QMainWindow):
             self._library_rename(info)
         elif chosen == act_cover:
             self._library_change_cover(info)
-        elif chosen == act_read:
-            self._library_toggle_read(info, not read_done)
         elif chosen == act_fav:
             self._library_set_metadata(info, favorite=not favorite)
             self.append_log(self.tr("favorite_removed" if favorite else "favorite_added", title=info.get("title", "")))
@@ -1192,6 +1287,7 @@ class MainWindow(QMainWindow):
 
     def _library_rename(self, info: dict) -> None:
         old_dir = Path(info["path"])
+        old_manga_id = str(info.get("manga_id") or manga_id_for_path(old_dir))
         old_title = str(info.get("title") or old_dir.name)
         new_title, ok = localized_text_input(self, self.tr, self.tr("menu_rename"), self.tr("rename_prompt"), text=old_title)
         new_title = (new_title or "").strip()
@@ -1213,6 +1309,10 @@ class MainWindow(QMainWindow):
         if target:
             target.title = new_title
             self.refresh_tree()
+        try:
+            self._reading_state_store().migrate(old_manga_id, manga_id_for_path(new_dir), title=new_title, path=new_dir)
+        except Exception:
+            pass
         self.append_log(self.tr("rename_done", old=old_title, new=new_title))
         self.refresh_library()
 
@@ -1236,10 +1336,6 @@ class MainWindow(QMainWindow):
         self.append_log(self.tr("cover_changed", title=info.get("title", "")))
         self.refresh_library()
 
-    def _library_toggle_read(self, info: dict, complete: bool) -> None:
-        self._set_manga_read_complete(str(info.get("title") or ""), str(info.get("url") or ""), complete)
-        self.append_log(self.tr("read_marked" if complete else "read_unmarked", title=info.get("title", "")))
-        self.refresh_library()
 
     def _library_delete(self, info: dict) -> None:
         title = str(info.get("title") or "")
@@ -1252,6 +1348,10 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, self.tr("menu_delete"), self.tr("delete_failed", error=exc))
             return
+        try:
+            self._reading_state_store().remove(str(info.get("manga_id") or manga_id_for_path(info["path"])))
+        except Exception:
+            pass
         target = self.find_manga_by_title_or_url(title, str(info.get("url") or ""))
         if target in self.mangas:
             self.mangas.remove(target)
@@ -2019,6 +2119,26 @@ class MainWindow(QMainWindow):
 
     def _saved_reader_position_for_manga(self, manga: MangaEntry) -> dict | None:
         self.settings.sync()
+        try:
+            info = self._library_info_for_manga(manga)
+            record = self._reading_state_store().get(
+                str(info.get("manga_id") or "") if info else "",
+                path=Path(info["path"]) if info else None,
+                title=manga.title,
+                source_url=manga.url,
+            )
+            if record and record.get("chapter_title"):
+                global_index = record.get("global_index")
+                return {
+                    "title": str(record.get("title") or manga.title),
+                    "chapter_id": str(record.get("chapter_id") or ""),
+                    "chapter_title": str(record.get("chapter_title") or ""),
+                    "page_index": max(0, int(record.get("page_index", 0) or 0)),
+                    "global_index": None if global_index is None else max(0, int(global_index)),
+                    "remembered_page": max(0, int(record.get("page_index", 0) or 0)) + 1,
+                }
+        except Exception:
+            pass
         has_position = str(self.settings.value("reader/has_position", "false") or "false").lower() == "true"
         if not has_position:
             return None
@@ -2066,12 +2186,14 @@ class MainWindow(QMainWindow):
         return chapter_id, chapter_title, 0, global_index, False
 
     def _reader_start_continue(self, saved_position: dict) -> tuple[str, str, int, int | None, bool]:
+        # Resume the exact page stored by either reader. Using the next page here
+        # would make desktop and mobile progress disagree by one page.
         return (
             saved_position["chapter_id"],
             saved_position["chapter_title"],
             saved_position["page_index"],
             saved_position["global_index"],
-            True,
+            False,
         )
 
     def _ask_reader_start_choice(self, manga: MangaEntry, saved_position: dict | None) -> tuple[str, str, int, int | None, bool] | None:
@@ -2150,7 +2272,11 @@ class MainWindow(QMainWindow):
         start_page_index: int = 0,
         start_global_index: int | None = None,
         start_after: bool = False,
+        manga_dir: str | Path | None = None,
     ) -> None:
+        if manga_dir is None:
+            info = self._library_info_for_manga(manga)
+            manga_dir = Path(info["path"]) if info else (Path(self.current_output_dir()) / sanitize_filename(manga.title, "Manga"))
         dialog = MangaReaderDialog(
             manga=manga,
             output_dir=self.current_output_dir(),
@@ -2161,6 +2287,8 @@ class MainWindow(QMainWindow):
             start_page_index=start_page_index,
             start_global_index=start_global_index,
             start_after=start_after,
+            manga_dir=manga_dir,
+            reading_store=self._reading_state_store(),
             parent=self,
         )
         if not dialog.pages:
@@ -2169,7 +2297,7 @@ class MainWindow(QMainWindow):
             return
         dialog.exec()
         if self.library_page.isVisible():
-            self.refresh_library()
+            self._refresh_library_reading_state_only(manga_id_for_path(Path(manga_dir)))
 
     def _manga_from_disk(self, title: str, url: str, output_dir: str) -> MangaEntry | None:
         manga_dir = Path(output_dir) / title
@@ -2206,6 +2334,40 @@ class MainWindow(QMainWindow):
 
     def maybe_resume_reader_on_startup(self) -> None:
         self.settings.sync()
+        try:
+            recent = self._reading_state_store().recent(1)
+        except Exception:
+            recent = []
+        if recent:
+            shared = recent[0]
+            title = str(shared.get("title") or "").strip()
+            chapter = str(shared.get("chapter_title") or "").strip()
+            if title and chapter:
+                try:
+                    remembered_page = int(shared.get("page_index", 0) or 0) + 1
+                except Exception:
+                    remembered_page = 1
+                if not localized_question(
+                    self, self.tr, self.tr("reader_continue_title"),
+                    self.tr("reader_continue_text", manga=title, chapter=chapter, page=remembered_page),
+                    default_yes=True,
+                ):
+                    return
+                manga = self.find_manga_by_title_or_url(title, str(shared.get("source_url") or ""))
+                output_dir = self.current_output_dir()
+                if not manga:
+                    manga = self._manga_from_disk(title, str(shared.get("source_url") or ""), output_dir)
+                if manga:
+                    self.open_reader_for_manga(
+                        manga,
+                        start_chapter_id=str(shared.get("chapter_id") or ""),
+                        start_chapter_title=chapter,
+                        start_page_index=int(shared.get("page_index", 0) or 0),
+                        start_global_index=shared.get("global_index"),
+                        start_after=False,
+                        manga_dir=Path(shared.get("path")) if shared.get("path") else None,
+                    )
+                    return
         has_position = str(self.settings.value("reader/has_position", "false") or "false").lower() == "true"
         title = str(self.settings.value("reader/last_manga_title", "") or "").strip()
         chapter = str(self.settings.value("reader/last_chapter_title", "") or "").strip()
@@ -2259,7 +2421,7 @@ class MainWindow(QMainWindow):
                 start_chapter_title=chapter,
                 start_page_index=page_index,
                 start_global_index=global_index,
-                start_after=True,
+                start_after=False,
             )
         finally:
             if previous_output != self.output_input.text() and not previous_output:
@@ -2688,6 +2850,8 @@ class MainWindow(QMainWindow):
             return
         self.language = normalize_language(str(code))
         self.translator.set_language(self.language)
+        if self._mobile_server is not None:
+            self._mobile_server.set_language(self.language)
         for worker in (self.resolve_worker, self.update_worker, self.download_worker):
             translator = getattr(worker, "translator", None) if worker is not None else None
             if translator is not None:
@@ -2729,6 +2893,10 @@ class MainWindow(QMainWindow):
             manga_list=manga_list,
             theme=self.theme,
             custom_themes=self.custom_themes,
+            mobile_reader_enabled=self._mobile_reader_enabled,
+            mobile_reader_port=self._mobile_reader_port,
+            mobile_reader_host=self._mobile_reader_host,
+            mobile_reader_urls=self._mobile_reader_display_urls(),
             parent=self,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -2766,24 +2934,50 @@ class MainWindow(QMainWindow):
 
         previous_active = self.automation.active
         self.automation = dialog.automation_schedule()
+        previous_mobile_enabled = self._mobile_reader_enabled
+        previous_mobile_port = self._mobile_reader_port
+        previous_mobile_host = self._mobile_reader_host
+        self._mobile_reader_enabled = dialog.mobile_reader_enabled()
+        self._mobile_reader_port = dialog.mobile_reader_port()
+        self._mobile_reader_host = dialog.mobile_reader_host()
 
-        # Apply the per-manga update/download flags to their metadata.
+        # Apply per-manga update/download flags only when values actually changed.
+        # The former implementation rewrote every metadata file on every OK click,
+        # marked the library dirty and then performed a full rescan, which caused a
+        # noticeable freeze when returning from Settings.
         flags_changed = False
+        cached_by_path = {
+            str(Path(info["path"]).expanduser().resolve(strict=False)): info
+            for info in (self._library_entries or [])
+            if info.get("path")
+        }
         for entry in dialog.manga_flags():
-            path = entry.get("path")
-            if not path:
+            raw_path = entry.get("path")
+            if not raw_path:
                 continue
+            manga_path = Path(raw_path)
             try:
-                data = read_manga_metadata_dir(Path(path))
+                data = read_manga_metadata_dir(manga_path)
+                old_check = self._flag(data.get("check_updates"), True)
+                old_auto = self._flag(data.get("auto_download"), True)
+                new_check = bool(entry.get("check_updates"))
+                new_auto = bool(entry.get("auto_download"))
+                if old_check == new_check and old_auto == new_auto:
+                    continue
                 data.setdefault("app", "MangoDango")
-                data["check_updates"] = bool(entry.get("check_updates"))
-                data["auto_download"] = bool(entry.get("auto_download"))
-                write_manga_metadata_dir(Path(path), data)
+                data["check_updates"] = new_check
+                data["auto_download"] = new_auto
+                write_manga_metadata_dir(manga_path, data)
                 flags_changed = True
+                cache_key = str(manga_path.expanduser().resolve(strict=False))
+                cached = cached_by_path.get(cache_key)
+                if cached is not None:
+                    cached["check_updates"] = new_check
+                    cached["auto_download"] = new_auto
             except Exception:
                 pass
-        if flags_changed:
-            self._library_dirty = True
+        if flags_changed and self._mobile_server is not None:
+            self._mobile_server.invalidate()
 
         # Apply appearance changes made in the personalisation tab.
         new_theme = dialog.selected_theme()
@@ -2800,6 +2994,13 @@ class MainWindow(QMainWindow):
 
         self._save_settings()
         self._start_automation_timer()
+        if (
+            previous_mobile_enabled != self._mobile_reader_enabled
+            or previous_mobile_port != self._mobile_reader_port
+            or previous_mobile_host != self._mobile_reader_host
+            or dir_changed
+        ):
+            self._sync_mobile_reader_server()
         if new_theme is not None:
             self.retranslate_ui()
         self.append_log(self.tr("log_settings_saved"))
@@ -2809,8 +3010,6 @@ class MainWindow(QMainWindow):
             self._library_dirty = True
             if self.library_page.isVisible():
                 self.refresh_library()
-        elif flags_changed and self.library_page.isVisible():
-            self.refresh_library()
         if self.automation.active:
             self.append_log(self.tr("automation_enabled_log", count=len(self.automation.slots)))
         elif previous_active:
@@ -2824,6 +3023,71 @@ class MainWindow(QMainWindow):
                 selected_titles=selected_titles,
                 download_immediately=action == "download",
             )
+
+    def _mobile_reader_display_urls(self) -> list[str]:
+        if self._mobile_server is not None and self._mobile_server.is_running:
+            return self._mobile_server.urls()
+        return mobile_reader_urls(self._mobile_reader_port, host=self._mobile_reader_host)
+
+    def _stop_mobile_reader_server(self) -> None:
+        server = self._mobile_server
+        self._mobile_server = None
+        if server is None:
+            return
+        try:
+            server.stop()
+        except Exception:
+            pass
+
+    def _sync_mobile_reader_server(self) -> None:
+        if not self._mobile_reader_enabled:
+            self._stop_mobile_reader_server()
+            self._mobile_reader_last_error = ""
+            return
+
+        output_dir = self.current_output_dir()
+        current = self._mobile_server
+        if (
+            current is not None
+            and current.is_running
+            and current.port == self._mobile_reader_port
+            and current.host == self._mobile_reader_host
+        ):
+            current.set_library_dir(output_dir)
+            current.set_language(self.language)
+            current.invalidate()
+            self._mobile_reader_last_error = ""
+            return
+
+        self._stop_mobile_reader_server()
+        try:
+            server = MobileLibraryServer(
+                output_dir,
+                port=self._mobile_reader_port,
+                host=self._mobile_reader_host,
+                language=self.language,
+            )
+            urls = server.start()
+        except MobileReaderConfigurationError as exc:
+            message = self.tr(exc.translation_key, **exc.translation_kwargs)
+            self._mobile_reader_last_error = message
+            self.append_log(self.tr("mobile_reader_start_failed", error=message))
+            return
+        except OSError as exc:
+            self._mobile_reader_last_error = str(exc)
+            self.append_log(self.tr("mobile_reader_start_failed", error=exc))
+            return
+        except Exception as exc:
+            self._mobile_reader_last_error = str(exc)
+            self.append_log(self.tr("mobile_reader_start_failed", error=exc))
+            return
+
+        self._mobile_server = server
+        self._mobile_reader_last_error = ""
+        if urls:
+            self.append_log(self.tr("mobile_reader_started", url=urls[0]))
+        else:
+            self.append_log(self.tr("mobile_reader_started_local_only", port=self._mobile_reader_port))
 
     def _start_automation_timer(self) -> None:
         # A single lightweight timer polls every 60 s and fires an update check
@@ -2885,6 +3149,7 @@ class MainWindow(QMainWindow):
         return candidates
 
     def closeEvent(self, event) -> None:
+        self._stop_mobile_reader_server()
         # Destroying the window (and therefore its child QThread workers) while a
         # worker is still inside a network call crashes Qt with
         # "QThread: Destroyed while thread is still running" (SIGABRT). A blocking
@@ -2936,6 +3201,10 @@ class MainWindow(QMainWindow):
             return
         self.settings.clear()
         self.settings.sync()
+        self._mobile_reader_enabled = False
+        self._mobile_reader_port = DEFAULT_MOBILE_READER_PORT
+        self._mobile_reader_host = DEFAULT_MOBILE_READER_HOST
+        self._stop_mobile_reader_server()
         for path in self._reset_paths():
             try:
                 if path.exists():

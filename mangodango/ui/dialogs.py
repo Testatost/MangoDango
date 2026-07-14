@@ -44,6 +44,7 @@ from .. import __version__
 from ..automation import AutomationSchedule, AutomationSlot, DAY_CHOICES
 from ..constants import IMAGE_FORMATS, OUTPUT_MODES, READING_STYLES
 from ..models import ChapterEntry, ItemSettings, MangaEntry
+from ..reading_state import ReadingStateStore, manga_id_for_path
 from .styles import PRESET_ORDER, THEME_PRESETS, ThemeSettings, preset_theme, _colors
 from ..scraper import IMAGE_EXTENSIONS, chapter_output_paths, natural_sort_key, sanitize_filename
 from ..updater import REPOSITORY_URL, ReleaseInfo, cleanup_download, schedule_update_install
@@ -165,6 +166,10 @@ class AppSettingsDialog(QDialog):
         manga_list: list[dict] | None = None,
         theme=None,
         custom_themes: list[dict] | None = None,
+        mobile_reader_enabled: bool = False,
+        mobile_reader_port: int = 8765,
+        mobile_reader_host: str = "0.0.0.0",
+        mobile_reader_urls: list[str] | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -178,7 +183,7 @@ class AppSettingsDialog(QDialog):
         self._downloaded_update_path = ""
         self._quit_after_update_worker = False
         self.setWindowTitle(self.tr("app_settings_title"))
-        self.setMinimumWidth(560)
+        self.setMinimumWidth(780)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self._build_general_tab(settings, check_updates_on_startup, auto_download_updates), self.tr("settings_tab_general"))
@@ -187,6 +192,15 @@ class AppSettingsDialog(QDialog):
         if theme is not None:
             self.tabs.addTab(self._build_appearance_tab(theme, custom_themes), self.tr("settings_tab_appearance"))
         self.tabs.addTab(self._build_automation_tab(), self.tr("settings_tab_automation"))
+        self.tabs.addTab(
+            self._build_mobile_reader_tab(
+                enabled=mobile_reader_enabled,
+                port=mobile_reader_port,
+                host=mobile_reader_host,
+                urls=list(mobile_reader_urls or []),
+            ),
+            self.tr("settings_tab_mobile_reader"),
+        )
         self.tabs.addTab(self._build_help_tab(), self.tr("settings_tab_help"))
 
         self.dialog_buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -265,6 +279,8 @@ class AppSettingsDialog(QDialog):
         # controls should never be clipped when switching to this tab.
         if page is getattr(self, "_manga_list_tab", None):
             hint = hint.expandedTo(QSize(660, 410))
+        if page is getattr(self, "_mobile_reader_tab", None):
+            hint = hint.expandedTo(QSize(640, 360))
         if page is getattr(self, "_help_tab", None):
             hint = hint.expandedTo(QSize(620, 360))
         return hint
@@ -291,13 +307,14 @@ class AppSettingsDialog(QDialog):
         screen = self.screen() or QApplication.primaryScreen()
         if screen is not None:
             available = screen.availableGeometry()
-            target_width = min(target_width, max(560, int(available.width() * 0.94)))
+            target_width = min(target_width, max(780, int(available.width() * 0.94)))
             target_height = min(target_height, max(420, int(available.height() * 0.94)))
         else:
             available = None
 
         old_center = self.frameGeometry().center()
-        target_size = QSize(max(560, target_width), max(420, target_height))
+        tab_bar_width = self.tabs.tabBar().sizeHint().width() + margins.left() + margins.right() + 28
+        target_size = QSize(max(780, target_width, tab_bar_width), max(420, target_height))
         if self.size() != target_size:
             self.resize(target_size)
 
@@ -560,6 +577,74 @@ class AppSettingsDialog(QDialog):
         day, time_text = item.data(Qt.ItemDataRole.UserRole)
         self._automation.slots = [s for s in self._automation.slots if not (s.day == day and s.time == time_text)]
         self._refresh_slots()
+
+    # -- Mobile reader tab ------------------------------------------------
+    def _build_mobile_reader_tab(self, enabled: bool, port: int, host: str, urls: list[str]) -> QWidget:
+        self.mobile_reader_enable = QCheckBox(self.tr("mobile_reader_enable"))
+        self.mobile_reader_enable.setChecked(bool(enabled))
+        self.mobile_reader_enable.setToolTip(self.tr("mobile_reader_enable_hint"))
+
+        self.mobile_reader_port_spin = QSpinBox()
+        self.mobile_reader_port_spin.setRange(1024, 65535)
+        self.mobile_reader_port_spin.setValue(max(1024, min(65535, int(port or 8765))))
+        self.mobile_reader_port_spin.setToolTip(self.tr("mobile_reader_port_hint"))
+
+        self.mobile_reader_host_edit = QLineEdit(str(host or "0.0.0.0"))
+        self.mobile_reader_host_edit.setPlaceholderText("0.0.0.0")
+        self.mobile_reader_host_edit.setToolTip(self.tr("mobile_reader_host_hint"))
+
+        form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.addRow(self.tr("mobile_reader_host"), self.mobile_reader_host_edit)
+        form.addRow(self.tr("mobile_reader_port"), self.mobile_reader_port_spin)
+
+        intro = QLabel(self.tr("mobile_reader_description"))
+        intro.setWordWrap(True)
+
+        security = QLabel(self.tr("mobile_reader_security_hint"))
+        security.setWordWrap(True)
+        security.setObjectName("SettingsHint")
+
+        hostname_hint = QLabel(self.tr("mobile_reader_hostname_hint"))
+        hostname_hint.setWordWrap(True)
+        hostname_hint.setObjectName("SettingsHint")
+
+        address_title = QLabel(self.tr("mobile_reader_addresses"))
+        address_title.setStyleSheet("font-weight: 600;")
+
+        self.mobile_reader_addresses_label = QLabel()
+        self.mobile_reader_addresses_label.setWordWrap(True)
+        self.mobile_reader_addresses_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.mobile_reader_addresses_label.setObjectName("SettingsHint")
+        self.mobile_reader_addresses_label.setText(
+            "\n".join(urls) if urls else self.tr("mobile_reader_no_address")
+        )
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(12)
+        layout.addWidget(intro)
+        layout.addWidget(self.mobile_reader_enable)
+        layout.addLayout(form)
+        layout.addWidget(address_title)
+        layout.addWidget(self.mobile_reader_addresses_label)
+        layout.addWidget(hostname_hint)
+        layout.addWidget(security)
+        layout.addStretch(1)
+
+        tab = QWidget()
+        tab.setLayout(layout)
+        self._mobile_reader_tab = tab
+        return tab
+
+    def mobile_reader_enabled(self) -> bool:
+        return self.mobile_reader_enable.isChecked()
+
+    def mobile_reader_port(self) -> int:
+        return self.mobile_reader_port_spin.value()
+
+    def mobile_reader_host(self) -> str:
+        return self.mobile_reader_host_edit.text().strip() or "0.0.0.0"
 
     # -- Help / self-update tab -------------------------------------------
     def _build_help_tab(self) -> QWidget:
@@ -1204,6 +1289,8 @@ class MangaReaderDialog(QDialog):
         start_page_index: int = 0,
         start_global_index: int | None = None,
         start_after: bool = False,
+        manga_dir: str | Path | None = None,
+        reading_store: ReadingStateStore | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -1211,6 +1298,8 @@ class MangaReaderDialog(QDialog):
         self.output_dir = output_dir
         self.tr = tr
         self.settings = settings
+        self.manga_dir = Path(manga_dir).expanduser() if manga_dir is not None else (Path(output_dir).expanduser() / sanitize_filename(manga.title, "Manga"))
+        self.reading_store = reading_store or ReadingStateStore(output_dir)
         self.pages = self._collect_pages()
         self.current_index = self._resolve_start_index(
             start_chapter_id,
@@ -1747,23 +1836,46 @@ class MangaReaderDialog(QDialog):
         return keys
 
     def _save_position(self, page: ReaderPage) -> None:
-        if self.settings is None:
-            return
-        self.settings.setValue("reader/has_position", "true")
-        self.settings.setValue("reader/last_manga_title", page.manga_title)
-        self.settings.setValue("reader/last_manga_url", page.manga_url)
-        self.settings.setValue("reader/last_chapter_id", page.chapter_id)
-        self.settings.setValue("reader/last_chapter_title", page.chapter_title)
-        self.settings.setValue("reader/last_page_index", page.page_index)
-        self.settings.setValue("reader/last_global_index", self.current_index)
-        self.settings.setValue("reader/last_output_dir", self.output_dir)
-
         # Mark the manga as read when the reader reaches the final page.
-        if self.pages and self.current_index >= len(self.pages) - 1:
-            for key in self._reader_completed_keys(page):
-                self.settings.setValue(key, "true")
+        reached_latest_page = bool(self.pages and self.current_index >= len(self.pages) - 1)
 
-        self.settings.sync()
+        # Keep the old QSettings position as a backwards-compatible fallback,
+        # but do not make shared desktop/mobile progress depend on QSettings.
+        if self.settings is not None:
+            self.settings.setValue("reader/has_position", "true")
+            self.settings.setValue("reader/last_manga_title", page.manga_title)
+            self.settings.setValue("reader/last_manga_url", page.manga_url)
+            self.settings.setValue("reader/last_chapter_id", page.chapter_id)
+            self.settings.setValue("reader/last_chapter_title", page.chapter_title)
+            self.settings.setValue("reader/last_page_index", page.page_index)
+            self.settings.setValue("reader/last_global_index", self.current_index)
+            self.settings.setValue("reader/last_output_dir", self.output_dir)
+            if reached_latest_page:
+                for key in self._reader_completed_keys(page):
+                    self.settings.setValue(key, "true")
+            self.settings.sync()
+
+        # Shared progress is stored in the library itself so the desktop and
+        # mobile readers always resume from the same chapter and page.
+        try:
+            self.reading_store.update_progress(
+                manga_id=manga_id_for_path(self.manga_dir),
+                title=page.manga_title,
+                source_url=page.manga_url,
+                path=self.manga_dir,
+                chapter_id=page.chapter_id,
+                chapter_title=page.chapter_title,
+                page_index=page.page_index,
+                global_index=self.current_index,
+                chapter_pages=self._chapter_page_count(page.chapter_id, page.chapter_title),
+                total_pages=len(self.pages),
+                reader_mode=self.current_display_mode(),
+                reached_latest_page=reached_latest_page,
+            )
+        except Exception:
+            # QSettings remains the backwards-compatible fallback even if the
+            # library is temporarily read-only.
+            pass
 
     def save_current_position(self) -> None:
         if not self.pages:
