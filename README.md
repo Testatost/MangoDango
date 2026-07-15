@@ -7,7 +7,7 @@
     <img alt="Version" src="https://img.shields.io/badge/Version-1.6.0-F59E0B?style=for-the-badge">
     <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white">
     <img alt="PySide6" src="https://img.shields.io/badge/PySide6-Qt%20GUI-41CD52?style=for-the-badge&logo=qt&logoColor=white">
-    <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%2011%20%7C%20Fedora%20%7C%20Linux%20Mint-lightgrey?style=for-the-badge">
+    <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%2011%20%7C%20Fedora%20%7C%20Mint-lightgrey?style=for-the-badge">
     <img alt="License" src="https://img.shields.io/badge/License-MIT-00A36C?style=for-the-badge">
   </p>
 </div>
@@ -16,7 +16,7 @@
 
 ## Overview
 
-**MangoDango** is a PySide6 desktop application for building, managing and reading a personal manga collection downloaded from `https://weebcentral.com/`.
+**MangoDango** is a desktop application for building, managing and reading a personal manga collection downloaded from `https://weebcentral.com/`.
 
 It combines four main functions in one application:
 
